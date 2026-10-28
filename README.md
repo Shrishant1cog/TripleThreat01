@@ -2,7 +2,7 @@
 
 **Easy Gateway** is a full-stack retail-management MVP for independent retailers across grocery, clothing, electronics, household goods, stationery, and general retail.
 
-The repository now contains a browser-based web app, an Express API, PostgreSQL-backed business records, server-side authentication, and scheduled maintenance. It is a functional MVP, not yet a production-hardened commercial retail platform.
+The repository contains a browser-based web app, an Express API, PostgreSQL-backed business records, and server-side authentication. The default Render Blueprint uses free resources for prototype/testing. It is a functional MVP, not a production-hardened commercial retail platform.
 
 ## Current stack
 
@@ -11,7 +11,7 @@ The repository now contains a browser-based web app, an Express API, PostgreSQL-
 - **Database:** PostgreSQL 18.
 - **Authentication:** bcrypt password hashing and PostgreSQL-backed server sessions with HTTP-only cookies.
 - **Security baseline:** Helmet security headers, request size limits, authentication rate limiting, same-origin mutation checks, parameterized SQL, and shop-scoped data access.
-- **Hosting:** Render web service + PostgreSQL + scheduled maintenance job.
+- **Hosting:** Render Free web service + Free PostgreSQL for testing; the database expires after 30 days.
 
 ## Implemented features
 
@@ -47,11 +47,11 @@ The repository now contains a browser-based web app, an Express API, PostgreSQL-
 
 ### Expiry management and recycle bin
 - Save an expiry date on each product.
-- Server-side expiry sweeps run on API activity and at scheduled intervals.
+- Server-side expiry sweeps run on API activity and periodically while the web service is awake.
 - When the date is earlier than the shop's configured local date, the product is deactivated, its remaining stock is preserved in a recycle-bin snapshot, and an in-app notification is written to PostgreSQL.
 - Expired products are not returned by active inventory APIs and cannot be sold.
 - Restoring a product requires a corrected expiry date that is valid and not in the past.
-- A Render maintenance job runs every 15 minutes, so expiry and purchase automation do not rely exclusively on an open browser tab.
+- The free Blueprint does not create a paid cron job. Expiry checks also run when API requests arrive, but background timers pause when the free web service sleeps. Continuous purchase-cycle automation is not enabled in this free configuration.
 
 **Current data model limitation:** expiry is attached to a product record, not separate supplier lots/batches. Retailers receiving the same SKU in multiple batches need batch-level inventory before relying on this for food or regulated-product safety processes.
 
@@ -111,26 +111,25 @@ The database schema is initialized by the application on startup. For a producti
 
 ## Deploy on Render
 
-A \`render.yaml\` Blueprint describes three resources:
+A \`render.yaml\` Blueprint describes two free resources:
 
 - \`easy-gateway\`: Node web service.
-- \`easy-gateway-maintenance\`: scheduled Node job, every 15 minutes.
-- \`easy-gateway-db\`: PostgreSQL 18 database, with private networking.
+- \`easy-gateway-db\`: Free PostgreSQL 18 database, with private networking.
 
 To deploy:
 
-1. Open [Render Blueprints](https://dashboard.render.com/blueprint/new).
+1. [Open the one-click Render deployment flow](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2FShrishant1cog%2FTripleThreat01) or open [Render Blueprints](https://dashboard.render.com/blueprint/new).
 2. Connect \`Shrishant1cog/TripleThreat01\`.
-3. Review the service and database plans, region, and environment variables.
+3. Confirm the web service and the existing \`easy-gateway-db\` database are selected, with the Free plan for both. The Blueprint connects \`DATABASE_URL\` to the database automatically.
 4. Apply the Blueprint and wait for the first deployment.
 5. Open the web service URL, register a shop account, and add your products.
 6. Verify the \`/healthz\` endpoint reports that the database is connected.
 
 ### Hosting cost warning
 
-The Blueprint selects a small **paid PostgreSQL plan** because Render's free PostgreSQL databases expire 30 days after creation and are deleted after the documented grace period unless upgraded. The web service uses the free compute plan for initial testing, which can sleep after inactivity; the first request after it sleeps can be slow. The scheduled maintenance job is billed by runtime. Review current Render pricing and the final Blueprint before applying it.
+This Blueprint uses the **Free** web service and **Free** PostgreSQL. The free database expires 30 days after creation; after expiry, it becomes inaccessible and Render deletes it after the documented 14-day grace period unless upgraded. This database was created on **October 28, 2026** and is scheduled to expire on **November 27, 2026**. Free web services can sleep after 15 minutes without inbound traffic, so the first request after sleep may be slow. The free setup does not include a scheduled maintenance job.
 
-A free web tier plus a database is suitable for trying the MVP, not a guarantee of production uptime. For a real shop, use a paid web service and a database plan with backups, and test restoration before storing business-critical records.
+A free web tier plus a free database is suitable for trying the MVP, not for business-critical production data. Export or migrate the database before November 27, 2026, and do not rely on this temporary database as the only copy of real inventory or sales records.
 
 ## API overview
 
