@@ -10,11 +10,13 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const { Pool } = require("pg");
 const QRCode = require("qrcode");
+const { buildStockActions, buildSummaryText } = require("./lib/retail-core");
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const NODE_ENV = process.env.NODE_ENV || "development";
-const SESSION_SECRET = process.env.SESSION_SECRET || (NODE_ENV === "production" ? "" : "local-development-secret-change-me");
+const ALLOW_DEV_SECRET = NODE_ENV === "development" && !process.env.RENDER;
+const SESSION_SECRET = process.env.SESSION_SECRET || (ALLOW_DEV_SECRET ? "local-development-secret-change-me" : "");
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   max: Number(process.env.PG_POOL_MAX || 8),
@@ -32,6 +34,18 @@ const text = value => typeof value === "string" ? value.trim() : "";
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 const allowedTimeZones = new Set(["Asia/Kolkata","UTC","Asia/Dubai","Europe/London","America/New_York"]);
+// PostgreSQL DATE columns arrive as local-midnight Date objects. Use local getters so the
+// calendar date never shifts through a UTC conversion, and keep text dates unchanged.
+const dateOnly = value => {
+  if(value==null||value==="")return "";
+  if(value instanceof Date){
+    if(Number.isNaN(value.getTime()))return "";
+    return value.getFullYear()+"-"+String(value.getMonth()+1).padStart(2,"0")+"-"+String(value.getDate()).padStart(2,"0");
+  }
+  const raw=String(value);
+  return datePattern.test(raw.slice(0,10))?raw.slice(0,10):raw;
+};
+const isBeforeDate = (value, reference) => dateOnly(value) < dateOnly(reference);
 
 app.disable("x-powered-by");
 app.set("trust proxy",1);
@@ -52,7 +66,7 @@ app.use(session({
   resave:false,saveUninitialized:false,rolling:true,
   cookie:{httpOnly:true,secure:NODE_ENV==="production",sameSite:"lax",maxAge:7*24*60*60*1000}
 }));
-app.use("/api/auth",rateLimit({windowMs:15*60*1000,limit:20,standardHeaders:"draft-8",legacyHeaders:false,message:{error:"Too many authentication attempts. Try again later."}}));
+const authLimiter=rateLimit({windowMs:15*60*1000,limit:20,standardHeaders:"draft-8",legacyHeaders:false,message:{error:"Too many authentication attempts. Try again later."}});
 
 const SCHEMA_SQL = [
 "CREATE TABLE IF NOT EXISTS user_sessions(sid VARCHAR NOT NULL PRIMARY KEY,sess JSON NOT NULL,expire TIMESTAMP(6) NOT NULL)",
@@ -67,7 +81,9 @@ const SCHEMA_SQL = [
 "CREATE TABLE IF NOT EXISTS shop_settings(shop_id TEXT PRIMARY KEY REFERENCES shops(id) ON DELETE CASCADE,currency TEXT NOT NULL DEFAULT 'INR',coin_threshold NUMERIC(12,2) NOT NULL DEFAULT 100 CHECK(coin_threshold>=1),timezone TEXT NOT NULL DEFAULT 'Asia/Kolkata',auto_purchase_enabled BOOLEAN NOT NULL DEFAULT FALSE,max_auto_purchase_amount NUMERIC(12,2) NOT NULL DEFAULT 5000 CHECK(max_auto_purchase_amount>=0),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
 "CREATE TABLE IF NOT EXISTS products(id TEXT PRIMARY KEY,shop_id TEXT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,name TEXT NOT NULL,sku TEXT NOT NULL,category TEXT NOT NULL DEFAULT 'General retail',unit TEXT NOT NULL DEFAULT 'piece',stock NUMERIC(14,3) NOT NULL DEFAULT 0 CHECK(stock>=0),reorder_at NUMERIC(14,3) NOT NULL DEFAULT 0 CHECK(reorder_at>=0),unit_cost NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK(unit_cost>=0),selling_price NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK(selling_price>=0),lead_time_days INTEGER NOT NULL DEFAULT 3 CHECK(lead_time_days BETWEEN 0 AND 180),expiry_date DATE,is_active BOOLEAN NOT NULL DEFAULT TRUE,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
 "ALTER TABLE products ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE",
+"ALTER TABLE products ADD COLUMN IF NOT EXISTS barcode TEXT NOT NULL DEFAULT ''",
 "CREATE UNIQUE INDEX IF NOT EXISTS products_shop_sku_unique ON products(shop_id,LOWER(sku))",
+"CREATE UNIQUE INDEX IF NOT EXISTS products_shop_barcode_unique ON products(shop_id,LOWER(barcode)) WHERE barcode<>''",
 "CREATE INDEX IF NOT EXISTS products_shop_demo_idx ON products(shop_id,is_demo) WHERE is_demo=TRUE",
 "CREATE INDEX IF NOT EXISTS products_shop_active_idx ON products(shop_id,is_active)",
 "CREATE INDEX IF NOT EXISTS products_expiry_idx ON products(expiry_date) WHERE is_active=TRUE",
@@ -78,6 +94,9 @@ const SCHEMA_SQL = [
 "CREATE TABLE IF NOT EXISTS sales(id TEXT PRIMARY KEY,shop_id TEXT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,product_id TEXT REFERENCES products(id) ON DELETE SET NULL,product_name TEXT NOT NULL,customer_id TEXT REFERENCES customers(id) ON DELETE SET NULL,customer_name TEXT NOT NULL DEFAULT 'Walk-in customer',quantity NUMERIC(14,3) NOT NULL CHECK(quantity>0),unit_price NUMERIC(14,2) NOT NULL CHECK(unit_price>=0),total NUMERIC(14,2) NOT NULL CHECK(total>=0),coins_earned BIGINT NOT NULL DEFAULT 0 CHECK(coins_earned>=0),created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
 "CREATE INDEX IF NOT EXISTS sales_shop_created_idx ON sales(shop_id,created_at DESC)",
 "CREATE INDEX IF NOT EXISTS sales_shop_product_idx ON sales(shop_id,product_id,created_at DESC)",
+"ALTER TABLE sales ADD COLUMN IF NOT EXISTS sale_group_id TEXT",
+"UPDATE sales SET sale_group_id=id WHERE sale_group_id IS NULL",
+"CREATE INDEX IF NOT EXISTS sales_group_idx ON sales(shop_id,sale_group_id)",
 "CREATE TABLE IF NOT EXISTS loyalty_transactions(id TEXT PRIMARY KEY,shop_id TEXT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,customer_id TEXT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,sale_id TEXT REFERENCES sales(id) ON DELETE SET NULL,delta BIGINT NOT NULL,reason TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
 "CREATE INDEX IF NOT EXISTS loyalty_customer_idx ON loyalty_transactions(shop_id,customer_id,created_at DESC)",
 "CREATE TABLE IF NOT EXISTS purchase_orders(id TEXT PRIMARY KEY,shop_id TEXT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,supplier_id TEXT REFERENCES suppliers(id) ON DELETE SET NULL,status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','approved_awaiting_supplier','submitted','partially_received','received','cancelled')),source TEXT NOT NULL DEFAULT 'manual',total_cost NUMERIC(14,2) NOT NULL DEFAULT 0,created_by TEXT REFERENCES users(id) ON DELETE SET NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),received_at TIMESTAMPTZ)",
@@ -99,7 +118,7 @@ const SCHEMA_SQL = [
 
 async function initializeDatabase(){
   if(!process.env.DATABASE_URL)throw new Error("DATABASE_URL is missing. Configure PostgreSQL before starting Easy Gateway.");
-  if(!SESSION_SECRET)throw new Error("SESSION_SECRET is required in production.");
+  if(!SESSION_SECRET)throw new Error("SESSION_SECRET is required outside local development.");
   const client=await pool.connect();
   try{
     await client.query("SELECT pg_advisory_lock(71303718)");
@@ -124,13 +143,13 @@ function ensureSameOrigin(req,res,next){
 app.use("/api",ensureSameOrigin);
 function regenerateSession(req){return new Promise((resolve,reject)=>req.session.regenerate(err=>err?reject(err):resolve()));}
 function saveSession(req){return new Promise((resolve,reject)=>req.session.save(err=>err?reject(err):resolve()));}
-function productDto(r){return {id:r.id,name:r.name,sku:r.sku,category:r.category,unit:r.unit,stock:Number(r.stock),reorderAt:Number(r.reorder_at),cost:Number(r.unit_cost),price:Number(r.selling_price),leadTimeDays:Number(r.lead_time_days),expiry:r.expiry_date||"",isDemo:!!r.is_demo,qrImported:!!r.is_demo,createdAt:r.created_at};}
+function productDto(r){return {id:r.id,name:r.name,sku:r.sku,barcode:r.barcode||"",category:r.category,unit:r.unit,stock:Number(r.stock),reorderAt:Number(r.reorder_at),cost:Number(r.unit_cost),price:Number(r.selling_price),leadTimeDays:Number(r.lead_time_days),expiry:dateOnly(r.expiry_date),isDemo:!!r.is_demo,qrImported:!!r.is_demo,createdAt:r.created_at};}
 function customerDto(r){return {id:r.id,name:r.name,phone:r.phone,coins:Number(r.coin_balance),spend:Number(r.lifetime_spend),orders:Number(r.order_count),createdAt:r.created_at};}
-function saleDto(r){return {id:r.id,item:r.product_name+(Number(r.quantity)===1?"":" × "+Number(r.quantity)),productId:r.product_id,customer:r.customer_name,amount:Number(r.total),quantity:Number(r.quantity),coinsEarned:Number(r.coins_earned),time:r.created_at,status:"Recorded",createdAt:r.created_at};}
+function saleDto(r){return {id:r.id,groupId:r.sale_group_id||r.id,item:r.product_name+(Number(r.quantity)===1?"":" × "+Number(r.quantity)),productId:r.product_id,customer:r.customer_name,amount:Number(r.total),quantity:Number(r.quantity),coinsEarned:Number(r.coins_earned),time:r.created_at,status:"Recorded",createdAt:r.created_at};}
 function supplierDto(r){return {id:r.id,name:r.name,contactPerson:r.contact_person,email:r.email,phone:r.phone,categories:r.categories,leadTimeDays:Number(r.lead_time_days),minimumOrderAmount:Number(r.minimum_order_amount),active:r.is_active};}
 function notificationDto(r){return {id:r.id,kind:r.kind,title:r.title,message:r.message,payload:r.payload,isRead:r.is_read,createdAt:r.created_at};}
-async function notify(shopId,kind,title,message,payload={}){
-  await pool.query("INSERT INTO notifications(id,shop_id,kind,title,message,payload) VALUES($1,$2,$3,$4,$5,$6::jsonb)",[id(),shopId,kind,title,message,JSON.stringify(payload)]);
+async function notify(shopId,kind,title,message,payload={},client=pool){
+  await client.query("INSERT INTO notifications(id,shop_id,kind,title,message,payload) VALUES($1,$2,$3,$4,$5,$6::jsonb)",[id(),shopId,kind,title,message,JSON.stringify(payload)]);
 }
 async function getShopSettings(shopId,client=pool){
   const r=await client.query("SELECT * FROM shop_settings WHERE shop_id=$1",[shopId]);
@@ -147,6 +166,18 @@ function validDate(value){
 function validDateRange(from,to){return validDate(from)&&validDate(to)&&from<=to;}
 function createQrToken(){return crypto.randomBytes(32).toString("base64url");}
 function hashQrToken(token){return crypto.createHash("sha256").update(String(token)).digest("hex");}
+function isLoopbackHostname(hostname){
+  const host=String(hostname||"").toLowerCase().replace(/^\[|\]$/g,"");
+  return host==="localhost"||host==="::1"||host==="0.0.0.0"||host.endsWith(".localhost")||/^127\./.test(host);
+}
+function resolvePublicOrigin(req,env=process.env){
+  const configured=text(env.PUBLIC_APP_URL);
+  let origin;
+  try{origin=new URL(configured||(req.protocol+"://"+req.get("host")));}
+  catch{throw fail(412,"PUBLIC_APP_URL must be a valid URL, for example http://192.168.1.20:3000.");}
+  if(isLoopbackHostname(origin.hostname))throw fail(412,"QR links cannot point at localhost because a phone cannot open them. Set PUBLIC_APP_URL to this PC's LAN address, for example http://192.168.1.20:3000, then restart the server.");
+  return origin.origin;
+}
 function escapeHtml(value){
   const map={"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"};
   return String(value==null?"":value).replace(/[&<>"']/g,c=>map[c]);
@@ -166,11 +197,11 @@ async function expirySweep(){
     await client.query("BEGIN");
     const expired=await client.query("SELECT p.* FROM products p LEFT JOIN shop_settings st ON st.shop_id=p.shop_id WHERE p.is_active=TRUE AND p.expiry_date IS NOT NULL AND p.expiry_date < (NOW() AT TIME ZONE COALESCE(st.timezone,'Asia/Kolkata'))::date FOR UPDATE OF p");
     for(const p of expired.rows){
-      const recycleId=id();
-      const snapshot={id:p.id,name:p.name,sku:p.sku,category:p.category,unit:p.unit,stock:Number(p.stock),reorderAt:Number(p.reorder_at),cost:Number(p.unit_cost),price:Number(p.selling_price),expiry:p.expiry_date,leadTimeDays:Number(p.lead_time_days)};
-      await client.query("INSERT INTO recycle_bin(id,shop_id,product_id,product_snapshot,stock_at_expiry,expiry_date,reason) VALUES($1,$2,$3,$4::jsonb,$5,$6,'Expiry date passed')",[recycleId,p.shop_id,p.id,JSON.stringify(snapshot),p.stock,p.expiry_date]);
+      const recycleId=id(),expiryDate=dateOnly(p.expiry_date);
+      const snapshot={id:p.id,name:p.name,sku:p.sku,category:p.category,unit:p.unit,stock:Number(p.stock),reorderAt:Number(p.reorder_at),cost:Number(p.unit_cost),price:Number(p.selling_price),expiry:expiryDate,leadTimeDays:Number(p.lead_time_days)};
+      await client.query("INSERT INTO recycle_bin(id,shop_id,product_id,product_snapshot,stock_at_expiry,expiry_date,reason) VALUES($1,$2,$3,$4::jsonb,$5,$6,'Expiry date passed')",[recycleId,p.shop_id,p.id,JSON.stringify(snapshot),p.stock,expiryDate]);
       await client.query("UPDATE products SET is_active=FALSE,stock=0,updated_at=NOW() WHERE id=$1",[p.id]);
-      await client.query("INSERT INTO notifications(id,shop_id,kind,title,message,payload) VALUES($1,$2,'product_expired','Expired product moved to recycle bin',$3,$4::jsonb)",[id(),p.shop_id,p.name+" expired on "+p.expiry_date+" and was moved out of active inventory.",JSON.stringify({productId:p.id,recycleBinId:recycleId,expiryDate:p.expiry_date})]);
+      await client.query("INSERT INTO notifications(id,shop_id,kind,title,message,payload) VALUES($1,$2,'product_expired','Expired product moved to recycle bin',$3,$4::jsonb)",[id(),p.shop_id,p.name+" expired on "+expiryDate+" and was moved out of active inventory.",JSON.stringify({productId:p.id,recycleBinId:recycleId,expiryDate})]);
     }
     await client.query("COMMIT");
     return expired.rowCount;
@@ -203,11 +234,13 @@ app.get("/scan/:token",asyncRoute(async(req,res)=>{
   }catch(err){await client.query("ROLLBACK").catch(()=>{});throw err;}
   finally{client.release();}
 }));
+app.get("/retail-core.js",(_req,res)=>res.type("application/javascript").set("Cache-Control","no-cache").sendFile(path.join(__dirname,"lib","retail-core.js")));
+app.get("/app-features.js",(_req,res)=>res.type("application/javascript").set("Cache-Control","no-cache").sendFile(path.join(__dirname,"app-features.js")));
 app.get("/shop/:slug",(_req,res)=>res.sendFile(path.join(__dirname,"index.html")));
 app.get("/",(_req,res)=>res.sendFile(path.join(__dirname,"index.html")));
 app.get("/favicon.ico",(_req,res)=>res.status(204).end());
 
-app.post("/api/auth/register",asyncRoute(async(req,res)=>{
+app.post("/api/auth/register",authLimiter,asyncRoute(async(req,res)=>{
   const fullName=text(req.body.fullName),shopName=text(req.body.shopName),email=text(req.body.email).toLowerCase(),password=typeof req.body.password==="string"?req.body.password:"";
   if(fullName.length<2||fullName.length>100)throw fail(400,"Enter your full name (2–100 characters).");
   if(shopName.length<2||shopName.length>120)throw fail(400,"Enter your shop name (2–120 characters).");
@@ -227,7 +260,7 @@ app.post("/api/auth/register",asyncRoute(async(req,res)=>{
   await regenerateSession(req);req.session.user={id:userId,shopId,name:fullName,email,role:"owner",shopName,publicSlug};await saveSession(req);
   res.status(201).json({user:publicUser(req.session.user)});
 }));
-app.post("/api/auth/login",asyncRoute(async(req,res)=>{
+app.post("/api/auth/login",authLimiter,asyncRoute(async(req,res)=>{
   const email=text(req.body.email).toLowerCase(),password=typeof req.body.password==="string"?req.body.password:"";
   if(!emailPattern.test(email)||!password)throw fail(400,"Enter your email and password.");
   const result=await pool.query("SELECT u.id,u.shop_id,u.full_name,u.email,u.password_hash,u.role,s.name AS shop_name,s.public_slug FROM users u JOIN shops s ON s.id=u.shop_id WHERE u.email=$1",[email]);
@@ -240,9 +273,16 @@ app.get("/api/auth/me",(req,res)=>{if(!req.session||!req.session.user)return res
 app.post("/api/auth/logout",asyncRoute(async(req,res)=>{if(req.session)await new Promise(resolve=>req.session.destroy(()=>resolve()));res.clearCookie("easy_gateway.sid",{httpOnly:true,sameSite:"lax",secure:NODE_ENV==="production"});res.json({ok:true});}));
 
 async function calculateDashboard(shopId){
+  const setting=await pool.query("SELECT timezone FROM shop_settings WHERE shop_id=$1",[shopId]);
+  const tz=setting.rows[0]?.timezone||"Asia/Kolkata";
+  const localToday="(NOW() AT TIME ZONE $2::text)::date";
+  const todayStart="(("+localToday+")::timestamp AT TIME ZONE $2::text)";
+  const yesterdayStart="((("+localToday+") - 1)::timestamp AT TIME ZONE $2::text)";
+  const seriesStart="((("+localToday+") - days.n)::timestamp AT TIME ZONE $2::text)";
+  const seriesEnd="((("+localToday+") - days.n + 1)::timestamp AT TIME ZONE $2::text)";
   const [stats,dailyRows,lowRows]=await Promise.all([
-    pool.query("SELECT COALESCE(SUM(total) FILTER(WHERE created_at>=CURRENT_DATE),0) AS revenue_today,COUNT(*) FILTER(WHERE created_at>=CURRENT_DATE)::int AS orders_today,COALESCE(SUM(total) FILTER(WHERE created_at>=CURRENT_DATE-INTERVAL '1 day' AND created_at<CURRENT_DATE),0) AS revenue_yesterday,(SELECT COUNT(*)::int FROM products WHERE shop_id=$1 AND is_active=TRUE AND stock<=reorder_at) AS low_stock,(SELECT COUNT(*)::int FROM products WHERE shop_id=$1 AND is_active=TRUE) AS product_count,(SELECT COALESCE(SUM(coin_balance),0)::bigint FROM customers WHERE shop_id=$1) AS loyalty_coins FROM sales WHERE shop_id=$1",[shopId]),
-    pool.query("SELECT TO_CHAR(CURRENT_DATE-days.n,'YYYY-MM-DD') AS day,COALESCE(SUM(s.total),0)::numeric(14,2) AS revenue,COUNT(s.id)::int AS order_count FROM generate_series(6,0,-1) AS days(n) LEFT JOIN sales s ON s.shop_id=$1 AND s.created_at>=(CURRENT_DATE-days.n)::timestamp AND s.created_at<(CURRENT_DATE-days.n+1)::timestamp GROUP BY days.n ORDER BY days.n DESC",[shopId]),
+    pool.query("SELECT COALESCE(SUM(total) FILTER(WHERE created_at>="+todayStart+"),0) AS revenue_today,COUNT(DISTINCT COALESCE(sale_group_id,id)) FILTER(WHERE created_at>="+todayStart+")::int AS orders_today,COALESCE(SUM(total) FILTER(WHERE created_at>="+yesterdayStart+" AND created_at<"+todayStart+"),0) AS revenue_yesterday,(SELECT COUNT(*)::int FROM products WHERE shop_id=$1 AND is_active=TRUE AND stock<=reorder_at) AS low_stock,(SELECT COUNT(*)::int FROM products WHERE shop_id=$1 AND is_active=TRUE) AS product_count,(SELECT COALESCE(SUM(coin_balance),0)::bigint FROM customers WHERE shop_id=$1) AS loyalty_coins FROM sales WHERE shop_id=$1",[shopId,tz]),
+    pool.query("SELECT TO_CHAR((NOW() AT TIME ZONE $2::text)::date-days.n,'YYYY-MM-DD') AS day,COALESCE(SUM(s.total),0)::numeric(14,2) AS revenue,COUNT(DISTINCT COALESCE(s.sale_group_id,s.id))::int AS order_count FROM generate_series(6,0,-1) AS days(n) LEFT JOIN sales s ON s.shop_id=$1 AND s.created_at>="+seriesStart+" AND s.created_at<"+seriesEnd+" GROUP BY days.n ORDER BY days.n DESC",[shopId,tz]),
     pool.query("SELECT id,name,stock,reorder_at,unit,selling_price,unit_cost,sku FROM products WHERE shop_id=$1 AND is_active=TRUE AND stock<=reorder_at ORDER BY (reorder_at-stock) DESC,name LIMIT 5",[shopId])
   ]);
   const s=stats.rows[0],days=dailyRows.rows.map(r=>({day:r.day,revenue:Number(r.revenue),orders:Number(r.order_count)})),anomalies=[];
@@ -257,6 +297,33 @@ async function calculateDashboard(shopId){
   return {revenueToday:Number(s.revenue_today),ordersToday:Number(s.orders_today),revenueYesterday:Number(s.revenue_yesterday),lowStockCount:Number(s.low_stock),productCount:Number(s.product_count),loyaltyCoins:Number(s.loyalty_coins),dailySales:days,anomalies,lowStockProducts:lowRows.rows.map(r=>({id:r.id,name:r.name,sku:r.sku,stock:Number(r.stock),reorderAt:Number(r.reorder_at),unit:r.unit,cost:Number(r.unit_cost),price:Number(r.selling_price)}))};
 }
 app.get("/api/dashboard",requireAuth,asyncRoute(async(req,res)=>res.json(await calculateDashboard(req.user.shopId))));
+app.get("/api/action-center",requireAuth,asyncRoute(async(req,res)=>{
+  const shopId=req.user.shopId;
+  const tz=(await pool.query("SELECT timezone FROM shop_settings WHERE shop_id=$1",[shopId])).rows[0]?.timezone||"Asia/Kolkata";
+  const r=await pool.query("SELECT p.*,COALESCE(SUM(s.quantity) FILTER (WHERE s.created_at>=NOW()-INTERVAL '30 days'),0) AS sold_30d,CASE WHEN p.expiry_date IS NULL THEN NULL ELSE (p.expiry_date-((NOW() AT TIME ZONE $2::text)::date)) END AS days_to_expiry,GREATEST(0,((NOW() AT TIME ZONE $2::text)::date-p.created_at::date)) AS age_days FROM products p LEFT JOIN sales s ON s.product_id=p.id AND s.shop_id=p.shop_id WHERE p.shop_id=$1 AND p.is_active=TRUE GROUP BY p.id ORDER BY p.name",[shopId,tz]);
+  const products=r.rows.map(p=>({id:p.id,name:p.name,sku:p.sku,barcode:p.barcode,category:p.category,unit:p.unit,stock:Number(p.stock),reorderAt:Number(p.reorder_at),cost:Number(p.unit_cost),price:Number(p.selling_price),expiry:dateOnly(p.expiry_date),daysToExpiry:p.days_to_expiry==null?null:Number(p.days_to_expiry),ageDays:Number(p.age_days),soldLast30Days:Number(p.sold_30d)}));
+  res.json({...buildStockActions(products),generatedAt:new Date().toISOString()});
+}));
+app.get("/api/daily-summary",requireAuth,asyncRoute(async(req,res)=>{
+  const shopId=req.user.shopId,requested=text(req.query.date);
+  if(requested&&(!datePattern.test(requested)||!validDate(requested)))throw fail(400,"Enter a valid summary date.");
+  const settings=await pool.query("SELECT st.timezone,st.currency,sh.name AS shop_name FROM shop_settings st JOIN shops sh ON sh.id=st.shop_id WHERE st.shop_id=$1",[shopId]);
+  const tz=settings.rows[0]?.timezone||"Asia/Kolkata",currency=settings.rows[0]?.currency||"INR",shopName=settings.rows[0]?.shop_name||"My shop";
+  let day=requested;
+  if(!day)day=(await pool.query("SELECT TO_CHAR((NOW() AT TIME ZONE $1::text)::date,'YYYY-MM-DD') AS day",[tz])).rows[0].day;
+  const bounds="created_at>=(($2::date)::timestamp AT TIME ZONE $3) AND created_at<((($2::date)+1)::timestamp AT TIME ZONE $3)";
+  const [stats,top,newCustomers,low,expiring]=await Promise.all([
+    pool.query("SELECT COALESCE(SUM(total),0) AS revenue,COALESCE(SUM(quantity),0) AS items,COALESCE(SUM(coins_earned),0) AS coins,COUNT(DISTINCT COALESCE(sale_group_id,id))::int AS orders FROM sales WHERE shop_id=$1 AND "+bounds,[shopId,day,tz]),
+    pool.query("SELECT product_name,COALESCE(SUM(quantity),0) AS quantity,COALESCE(SUM(total),0) AS revenue FROM sales WHERE shop_id=$1 AND "+bounds+" GROUP BY product_name ORDER BY revenue DESC,quantity DESC LIMIT 5",[shopId,day,tz]),
+    pool.query("SELECT COUNT(*)::int AS count FROM customers WHERE shop_id=$1 AND created_at>=(($2::date)::timestamp AT TIME ZONE $3) AND created_at<((($2::date)+1)::timestamp AT TIME ZONE $3)",[shopId,day,tz]),
+    pool.query("SELECT COUNT(*)::int AS count FROM products WHERE shop_id=$1 AND is_active=TRUE AND stock<=reorder_at",[shopId]),
+    pool.query("SELECT COUNT(*)::int AS count FROM products WHERE shop_id=$1 AND is_active=TRUE AND expiry_date IS NOT NULL AND expiry_date BETWEEN (NOW() AT TIME ZONE $2::text)::date AND (NOW() AT TIME ZONE $2::text)::date+7",[shopId,tz])
+  ]);
+  const revenue=Number(stats.rows[0].revenue),orders=Number(stats.rows[0].orders);
+  const summary={date:day,shopName,currency,revenue,orders,itemsSold:Number(stats.rows[0].items),averageOrder:orders?Math.round(revenue/orders*100)/100:0,coinsAwarded:Number(stats.rows[0].coins),newCustomers:Number(newCustomers.rows[0].count),topProducts:top.rows.map(x=>({name:x.product_name,quantity:Number(x.quantity),revenue:Number(x.revenue)})),lowStockCount:Number(low.rows[0].count),expiringSoonCount:Number(expiring.rows[0].count),generatedAt:new Date().toISOString()};
+  summary.shareText=buildSummaryText(summary);
+  res.json({summary});
+}));
 app.get("/api/bootstrap",requireAuth,asyncRoute(async(req,res)=>{
   const shopId=req.user.shopId;
   const [settings,products,sales,customers,suppliers,bin,notifications,orders,dashboard,shopMeta]=await Promise.all([
@@ -274,7 +341,7 @@ app.get("/api/bootstrap",requireAuth,asyncRoute(async(req,res)=>{
   res.json({
     user:{...publicUser(req.user),publicSlug:shopMeta.rows[0]?.public_slug||req.user.publicSlug||""},settings,
     products:products.rows.map(productDto),sales:sales.rows.map(saleDto),customers:customers.rows.map(customerDto),suppliers:suppliers.rows.map(supplierDto),
-    recycleBin:bin.rows.map(r=>({id:r.id,productId:r.product_id,product:r.product_snapshot,stockAtExpiry:Number(r.stock_at_expiry),expiry:r.expiry_date,reason:r.reason,recycledAt:r.recycled_at})),
+    recycleBin:bin.rows.map(r=>({id:r.id,productId:r.product_id,product:r.product_snapshot,stockAtExpiry:Number(r.stock_at_expiry),expiry:dateOnly(r.expiry_date),reason:r.reason,recycledAt:r.recycled_at})),
     notifications:notifications.rows.map(notificationDto),
     purchaseOrders:orders.rows.map(r=>({id:r.id,supplierId:r.supplier_id,supplierName:r.supplier_name||"Not assigned",status:r.status,source:r.source,totalCost:Number(r.total_cost),itemCount:Number(r.item_count),createdAt:r.created_at})),
     dashboard
@@ -283,33 +350,49 @@ app.get("/api/bootstrap",requireAuth,asyncRoute(async(req,res)=>{
 
 app.get("/api/products",requireAuth,asyncRoute(async(req,res)=>{
   const q=text(req.query.q),pattern="%"+q.replace(/[%_\\]/g,"\\$&")+"%";
-  const r=await pool.query("SELECT * FROM products WHERE shop_id=$1 AND is_active=TRUE AND ($2='' OR name ILIKE $3 OR sku ILIKE $3 OR category ILIKE $3) ORDER BY name",[req.user.shopId,q,pattern]);
+  const r=await pool.query("SELECT * FROM products WHERE shop_id=$1 AND is_active=TRUE AND ($2='' OR name ILIKE $3 OR sku ILIKE $3 OR barcode ILIKE $3 OR category ILIKE $3) ORDER BY name",[req.user.shopId,q,pattern]);
   res.json({products:r.rows.map(productDto)});
 }));
+app.get("/api/products/lookup",requireAuth,asyncRoute(async(req,res)=>{
+  const code=text(req.query.code);
+  if(!code||code.length>100)throw fail(400,"Enter a barcode or SKU to look up.");
+  const r=await pool.query("SELECT * FROM products WHERE shop_id=$1 AND is_active=TRUE AND (LOWER(barcode)=LOWER($2) OR LOWER(sku)=LOWER($2)) ORDER BY (LOWER(barcode)=LOWER($2)) DESC,name LIMIT 1",[req.user.shopId,code]);
+  if(!r.rowCount)throw fail(404,"No active product matches the barcode or SKU \""+code+"\". Add it in Inventory first.");
+  res.json({product:productDto(r.rows[0])});
+}));
 app.post("/api/products",requireAuth,asyncRoute(async(req,res)=>{
-  const name=text(req.body.name),sku=text(req.body.sku)||"EG-"+crypto.randomBytes(4).toString("hex").toUpperCase(),category=text(req.body.category)||"General retail",unit=text(req.body.unit)||"piece";
+  const name=text(req.body.name),sku=text(req.body.sku)||"EG-"+crypto.randomBytes(4).toString("hex").toUpperCase(),barcode=text(req.body.barcode),category=text(req.body.category)||"General retail",unit=text(req.body.unit)||"piece";
   const stock=Number(req.body.stock??0),reorderAt=Number(req.body.reorderAt??0),cost=Number(req.body.cost??0),price=Number(req.body.price??0),lead=Number(req.body.leadTimeDays??3),expiry=text(req.body.expiry)||null;
-  if(!name||name.length>180||sku.length>100||category.length>100||unit.length>60)throw fail(400,"Product name is required; SKU/category/unit limits were exceeded.");
+  if(!name||name.length>180||sku.length>100||barcode.length>100||category.length>100||unit.length>60)throw fail(400,"Product name is required; SKU, barcode, category and unit limits were exceeded.");
   if(![stock,reorderAt,cost,price,lead].every(Number.isFinite)||[stock,reorderAt,cost,price].some(v=>v<0)||!Number.isInteger(lead)||lead<0||lead>180)throw fail(400,"Enter valid non-negative inventory and price values.");
   if(expiry&&(!datePattern.test(expiry)||!validDate(expiry)))throw fail(400,"Enter a valid expiry date.");
   try{
-    const r=await pool.query("INSERT INTO products(id,shop_id,name,sku,category,unit,stock,reorder_at,unit_cost,selling_price,lead_time_days,expiry_date) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *",[id(),req.user.shopId,name,sku,category,unit,stock,reorderAt,cost,price,lead,expiry]);
+    const r=await pool.query("INSERT INTO products(id,shop_id,name,sku,barcode,category,unit,stock,reorder_at,unit_cost,selling_price,lead_time_days,expiry_date) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *",[id(),req.user.shopId,name,sku,barcode,category,unit,stock,reorderAt,cost,price,lead,expiry]);
     await runExpirySweep();
     const active=await pool.query("SELECT * FROM products WHERE id=$1 AND shop_id=$2 AND is_active=TRUE",[r.rows[0].id,req.user.shopId]);
     if(!active.rowCount)return res.status(201).json({recycledImmediately:true,message:"The expiry date has passed; the item was moved to the recycle bin."});
     res.status(201).json({product:productDto(active.rows[0])});
-  }catch(err){if(err.code==="23505")throw fail(409,"That SKU already exists in this shop.");throw err;}
+  }catch(err){if(err.code==="23505")throw fail(409,"That SKU or barcode already exists in this shop.");throw err;}
 }));
 app.delete("/api/products/:id/demo",requireAuth,asyncRoute(async(req,res)=>{
-  const removed=await pool.query("DELETE FROM products WHERE id=$1 AND shop_id=$2 AND is_demo=TRUE RETURNING name",[req.params.id,req.user.shopId]);
-  if(!removed.rowCount)throw fail(404,"QR sample not found. Only products imported from a sample QR can be removed this way.");
-  await notify(req.user.shopId,"demo_product_removed","QR sample removed",removed.rows[0].name+" was removed after the demonstration.",{productId:req.params.id});
-  res.json({ok:true,name:removed.rows[0].name});
+  const client=await pool.connect();
+  try{
+    await client.query("BEGIN");
+    const removed=await client.query("DELETE FROM products WHERE id=$1 AND shop_id=$2 AND is_demo=TRUE RETURNING name",[req.params.id,req.user.shopId]);
+    if(!removed.rowCount)throw fail(404,"QR sample not found. Only products imported from a sample QR can be removed this way.");
+    await notify(req.user.shopId,"demo_product_removed","QR sample removed",removed.rows[0].name+" was removed after the demonstration.",{productId:req.params.id},client);
+    await client.query("COMMIT");
+    res.json({ok:true,name:removed.rows[0].name});
+  }catch(err){await client.query("ROLLBACK").catch(()=>{});throw err;}
+  finally{client.release();}
 }));
 app.put("/api/products/:id",requireAuth,asyncRoute(async(req,res)=>{
-  const x={name:text(req.body.name),sku:text(req.body.sku),category:text(req.body.category)||"General retail",unit:text(req.body.unit)||"piece",stock:Number(req.body.stock),reorderAt:Number(req.body.reorderAt),cost:Number(req.body.cost),price:Number(req.body.price),lead:Number(req.body.leadTimeDays??3),expiry:text(req.body.expiry)||null};
-  if(!x.name||!x.sku||![x.stock,x.reorderAt,x.cost,x.price,x.lead].every(Number.isFinite)||[x.stock,x.reorderAt,x.cost,x.price].some(v=>v<0)||!Number.isInteger(x.lead)||x.lead<0||x.lead>180||(x.expiry&&(!datePattern.test(x.expiry)||!validDate(x.expiry))))throw fail(400,"Product details are invalid.");
-  const r=await pool.query("UPDATE products SET name=$3,sku=$4,category=$5,unit=$6,stock=$7,reorder_at=$8,unit_cost=$9,selling_price=$10,lead_time_days=$11,expiry_date=$12,updated_at=NOW() WHERE id=$1 AND shop_id=$2 AND is_active=TRUE RETURNING *",[req.params.id,req.user.shopId,x.name,x.sku,x.category,x.unit,x.stock,x.reorderAt,x.cost,x.price,x.lead,x.expiry]);
+  const x={name:text(req.body.name),sku:text(req.body.sku),barcode:text(req.body.barcode),category:text(req.body.category)||"General retail",unit:text(req.body.unit)||"piece",stock:Number(req.body.stock),reorderAt:Number(req.body.reorderAt),cost:Number(req.body.cost),price:Number(req.body.price),lead:Number(req.body.leadTimeDays??3),expiry:text(req.body.expiry)||null};
+  if(!x.name||x.name.length>180||!x.sku||x.sku.length>100||x.barcode.length>100||x.category.length>100||x.unit.length>60||![x.stock,x.reorderAt,x.cost,x.price,x.lead].every(Number.isFinite)||[x.stock,x.reorderAt,x.cost,x.price].some(v=>v<0)||!Number.isInteger(x.lead)||x.lead<0||x.lead>180||(x.expiry&&(!datePattern.test(x.expiry)||!validDate(x.expiry))))throw fail(400,"Product details are invalid.");
+  let r;
+  try{
+    r=await pool.query("UPDATE products SET name=$3,sku=$4,barcode=$5,category=$6,unit=$7,stock=$8,reorder_at=$9,unit_cost=$10,selling_price=$11,lead_time_days=$12,expiry_date=$13,updated_at=NOW() WHERE id=$1 AND shop_id=$2 AND is_active=TRUE RETURNING *",[req.params.id,req.user.shopId,x.name,x.sku,x.barcode,x.category,x.unit,x.stock,x.reorderAt,x.cost,x.price,x.lead,x.expiry]);
+  }catch(err){if(err.code==="23505")throw fail(409,"That SKU or barcode already exists in this shop.");throw err;}
   if(!r.rowCount)throw fail(404,"Product not found.");
   await runExpirySweep();
   const active=await pool.query("SELECT * FROM products WHERE id=$1 AND shop_id=$2 AND is_active=TRUE",[req.params.id,req.user.shopId]);
@@ -318,10 +401,16 @@ app.put("/api/products/:id",requireAuth,asyncRoute(async(req,res)=>{
 app.post("/api/products/:id/stock-adjustments",requireAuth,asyncRoute(async(req,res)=>{
   const delta=Number(req.body.delta),reason=text(req.body.reason);
   if(!Number.isFinite(delta)||delta===0||Math.abs(delta)>1000000||reason.length<3||reason.length>240)throw fail(400,"Enter a non-zero adjustment and a reason (3–240 characters).");
-  const r=await pool.query("UPDATE products SET stock=stock+$3,updated_at=NOW() WHERE id=$1 AND shop_id=$2 AND is_active=TRUE AND stock+$3>=0 RETURNING *",[req.params.id,req.user.shopId,delta]);
-  if(!r.rowCount)throw fail(409,"Product not found or adjustment would make stock negative.");
-  await notify(req.user.shopId,"stock_adjustment","Inventory adjusted",r.rows[0].name+": "+(delta>0?"+":"")+delta+". Reason: "+reason,{productId:req.params.id,delta,reason,userId:req.user.id});
-  res.json({product:productDto(r.rows[0])});
+  const client=await pool.connect();
+  try{
+    await client.query("BEGIN");
+    const r=await client.query("UPDATE products SET stock=stock+$3,updated_at=NOW() WHERE id=$1 AND shop_id=$2 AND is_active=TRUE AND stock+$3>=0 RETURNING *",[req.params.id,req.user.shopId,delta]);
+    if(!r.rowCount)throw fail(409,"Product not found or adjustment would make stock negative.");
+    await notify(req.user.shopId,"stock_adjustment","Inventory adjusted",r.rows[0].name+": "+(delta>0?"+":"")+delta+". Reason: "+reason,{productId:req.params.id,delta,reason,userId:req.user.id},client);
+    await client.query("COMMIT");
+    res.json({product:productDto(r.rows[0])});
+  }catch(err){await client.query("ROLLBACK").catch(()=>{});throw err;}
+  finally{client.release();}
 }));
 
 app.get("/api/sales",requireAuth,asyncRoute(async(req,res)=>{
@@ -329,35 +418,54 @@ app.get("/api/sales",requireAuth,asyncRoute(async(req,res)=>{
   res.json({sales:r.rows.map(saleDto)});
 }));
 app.post("/api/sales",requireAuth,asyncRoute(async(req,res)=>{
-  const productId=text(req.body.productId),quantity=Number(req.body.quantity),customerName=text(req.body.customerName);
-  if(!productId||!Number.isFinite(quantity)||quantity<=0||quantity>1000000)throw fail(400,"Select a product and enter a positive quantity.");
+  const customerName=text(req.body.customerName);
   if(customerName.length>120)throw fail(400,"Customer name must be 120 characters or fewer.");
+  const requested=Array.isArray(req.body.items)&&req.body.items.length?req.body.items:[{productId:req.body.productId,quantity:req.body.quantity}];
+  if(!requested.length||requested.length>50)throw fail(400,"A sale must contain between 1 and 50 product lines.");
+  const lines=[],seen=new Map();
+  for(const item of requested){
+    const productId=text(item&&item.productId),quantity=Number(item&&item.quantity);
+    if(!productId||!Number.isFinite(quantity)||quantity<=0||quantity>1000000)throw fail(400,"Select a product and enter a positive quantity.");
+    if(seen.has(productId))seen.get(productId).quantity+=quantity;
+    else{const line={productId,quantity};seen.set(productId,line);lines.push(line);}
+  }
   const client=await pool.connect();
   try{
     await client.query("BEGIN");
-    const pr=await client.query("SELECT * FROM products WHERE id=$1 AND shop_id=$2 AND is_active=TRUE FOR UPDATE",[productId,req.user.shopId]);
-    if(!pr.rowCount)throw fail(404,"Product is not active. Check its expiry status.");
-    const p=pr.rows[0],stock=Number(p.stock);
-    if(stock<quantity)throw fail(409,"Insufficient stock. Only "+stock+" "+p.unit+" remain.");
-    const total=Math.round(Number(p.selling_price)*quantity*100)/100;
+    const pr=await client.query("SELECT * FROM products WHERE shop_id=$1 AND is_active=TRUE AND id=ANY($2::text[]) ORDER BY id FOR UPDATE",[req.user.shopId,lines.map(l=>l.productId)]);
+    if(pr.rowCount!==lines.length)throw fail(404,"One or more products are not active. Check expiry status and try again.");
+    const products=new Map(pr.rows.map(p=>[p.id,p]));
+    let total=0;
+    for(const line of lines){
+      const p=products.get(line.productId),stock=Number(p.stock);
+      if(stock<line.quantity)throw fail(409,"Insufficient stock for "+p.name+". Only "+stock+" "+p.unit+" remain.");
+      line.product=p;
+      line.total=Math.round(Number(p.selling_price)*line.quantity*100)/100;
+      total+=line.total;
+    }
+    total=Math.round(total*100)/100;
     const setting=await client.query("SELECT coin_threshold FROM shop_settings WHERE shop_id=$1",[req.user.shopId]);
-    const threshold=Number(setting.rows[0]?.coin_threshold||100);
+    const threshold=Math.max(1,Number(setting.rows[0]?.coin_threshold||100));
     let customerId=null,coins=0,displayCustomer="Walk-in customer";
     if(customerName){
       const nameKey=customerName.toLocaleLowerCase("en-US");
-      let customer=await client.query("SELECT * FROM customers WHERE shop_id=$1 AND name_key=$2 FOR UPDATE",[req.user.shopId,nameKey]);
-      if(!customer.rowCount)customer=await client.query("INSERT INTO customers(id,shop_id,name,name_key) VALUES($1,$2,$3,$4) RETURNING *",[id(),req.user.shopId,customerName,nameKey]);
+      const customer=await client.query("INSERT INTO customers(id,shop_id,name,name_key) VALUES($1,$2,$3,$4) ON CONFLICT(shop_id,name_key) DO UPDATE SET name=customers.name RETURNING *",[id(),req.user.shopId,customerName,nameKey]);
       customerId=customer.rows[0].id;displayCustomer=customer.rows[0].name;coins=Math.floor(total/threshold);
     }
-    const saleId=id();
-    await client.query("UPDATE products SET stock=stock-$3,updated_at=NOW() WHERE id=$1 AND shop_id=$2",[productId,req.user.shopId,quantity]);
-    const sale=await client.query("INSERT INTO sales(id,shop_id,product_id,product_name,customer_id,customer_name,quantity,unit_price,total,coins_earned) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *",[saleId,req.user.shopId,productId,p.name,customerId,displayCustomer,quantity,p.selling_price,total,coins]);
+    const groupId=id(),sales=[];
+    for(let index=0;index<lines.length;index++){
+      const line=lines[index],p=line.product;
+      const updated=await client.query("UPDATE products SET stock=stock-$3,updated_at=NOW() WHERE id=$1 AND shop_id=$2 AND stock>=$3",[line.productId,req.user.shopId,line.quantity]);
+      if(!updated.rowCount)throw fail(409,"Insufficient stock for "+p.name+".");
+      const sale=await client.query("INSERT INTO sales(id,shop_id,product_id,product_name,customer_id,customer_name,quantity,unit_price,total,coins_earned,sale_group_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *",[id(),req.user.shopId,line.productId,p.name,customerId,displayCustomer,line.quantity,p.selling_price,line.total,index===0?coins:0,groupId]);
+      sales.push(sale.rows[0]);
+    }
     if(customerId){
       await client.query("UPDATE customers SET coin_balance=coin_balance+$3,lifetime_spend=lifetime_spend+$4,order_count=order_count+1 WHERE id=$1 AND shop_id=$2",[customerId,req.user.shopId,coins,total]);
-      if(coins>0)await client.query("INSERT INTO loyalty_transactions(id,shop_id,customer_id,sale_id,delta,reason) VALUES($1,$2,$3,$4,$5,'Purchase reward')",[id(),req.user.shopId,customerId,saleId,coins]);
+      if(coins>0)await client.query("INSERT INTO loyalty_transactions(id,shop_id,customer_id,sale_id,delta,reason) VALUES($1,$2,$3,$4,$5,'Purchase reward')",[id(),req.user.shopId,customerId,sales[0].id,coins]);
     }
     await client.query("COMMIT");
-    res.status(201).json({sale:saleDto(sale.rows[0]),coinsEarned:coins});
+    res.status(201).json({sale:saleDto(sales[0]),sales:sales.map(saleDto),coinsEarned:coins,total,groupId,customer:displayCustomer});
   }catch(err){await client.query("ROLLBACK").catch(()=>{});throw err;}
   finally{client.release();}
 }));
@@ -409,8 +517,8 @@ app.post("/api/purchase-orders",requireAuth,asyncRoute(async(req,res)=>{
     }
     await client.query("INSERT INTO purchase_orders(id,shop_id,supplier_id,status,source,total_cost,created_by) VALUES($1,$2,$3,'draft','manual',$4,$5)",[orderId,req.user.shopId,supplierId,total,req.user.id]);
     for(const line of lines)await client.query("INSERT INTO purchase_order_items(id,purchase_order_id,product_id,product_name,quantity,unit_cost) VALUES($1,$2,$3,$4,$5,$6)",[id(),orderId,line.product.id,line.product.name,line.quantity,line.product.unit_cost]);
+    await notify(req.user.shopId,"purchase_order","Purchase order draft created","Draft "+orderId.slice(0,8)+" created for "+lines.length+" products. It has not been sent to a supplier.",{purchaseOrderId:orderId},client);
     await client.query("COMMIT");
-    await notify(req.user.shopId,"purchase_order","Purchase order draft created","Draft "+orderId.slice(0,8)+" created for "+lines.length+" products. It has not been sent to a supplier.",{purchaseOrderId:orderId});
     res.status(201).json({purchaseOrder:{id:orderId,status:"draft",totalCost:Math.round(total*100)/100,itemCount:lines.length}});
   }catch(err){await client.query("ROLLBACK").catch(()=>{});throw err;}
   finally{client.release();}
@@ -423,23 +531,31 @@ app.post("/api/purchase-orders/:id/receive",requireAuth,asyncRoute(async(req,res
     if(!po.rowCount)throw fail(404,"Purchase order not found.");
     if(["received","cancelled"].includes(po.rows[0].status))throw fail(409,"This purchase order cannot be received.");
     const items=await client.query("SELECT * FROM purchase_order_items WHERE purchase_order_id=$1 FOR UPDATE",[req.params.id]);
+    const blocked=[];
     for(const item of items.rows){
       const outstanding=Number(item.quantity)-Number(item.received_quantity);
-      if(outstanding<=0||!item.product_id)continue;
+      if(outstanding<=0)continue;
+      if(!item.product_id){blocked.push(item.product_name);continue;}
       const p=await client.query("UPDATE products SET stock=stock+$3,updated_at=NOW() WHERE id=$1 AND shop_id=$2 AND is_active=TRUE RETURNING id",[item.product_id,req.user.shopId,outstanding]);
       if(p.rowCount)await client.query("UPDATE purchase_order_items SET received_quantity=quantity WHERE id=$1",[item.id]);
+      else blocked.push(item.product_name);
     }
     const pending=await client.query("SELECT COUNT(*)::int AS n FROM purchase_order_items WHERE purchase_order_id=$1 AND received_quantity<quantity",[req.params.id]);
     const status=Number(pending.rows[0].n)>0?"partially_received":"received";
     await client.query("UPDATE purchase_orders SET status=$2,received_at=CASE WHEN $2='received' THEN NOW() ELSE received_at END WHERE id=$1",[req.params.id,status]);
-    await client.query("COMMIT");res.json({ok:true,status});
+    if(blocked.length){
+      const prior=await client.query("SELECT 1 FROM notifications WHERE shop_id=$1 AND kind='purchase_receive_blocked' AND payload->>'purchaseOrderId'=$2 LIMIT 1",[req.user.shopId,req.params.id]);
+      if(!prior.rowCount)await notify(req.user.shopId,"purchase_receive_blocked","Purchase receipt needs attention","Stock was not added for "+blocked.join(", ")+" because the product is no longer active. Restore or correct the product, then receive the order again.",{purchaseOrderId:req.params.id,products:blocked},client);
+    }
+    await client.query("COMMIT");
+    res.json({ok:true,status,warnings:blocked});
   }catch(err){await client.query("ROLLBACK").catch(()=>{});throw err;}
   finally{client.release();}
 }));
 
 app.get("/api/recycle-bin",requireAuth,asyncRoute(async(req,res)=>{
   const r=await pool.query("SELECT * FROM recycle_bin WHERE shop_id=$1 AND restored_at IS NULL AND deleted_at IS NULL ORDER BY recycled_at DESC",[req.user.shopId]);
-  res.json({items:r.rows.map(x=>({id:x.id,productId:x.product_id,product:x.product_snapshot,stockAtExpiry:Number(x.stock_at_expiry),expiry:x.expiry_date,reason:x.reason,recycledAt:x.recycled_at}))});
+  res.json({items:r.rows.map(x=>({id:x.id,productId:x.product_id,product:x.product_snapshot,stockAtExpiry:Number(x.stock_at_expiry),expiry:dateOnly(x.expiry_date),reason:x.reason,recycledAt:x.recycled_at}))});
 }));
 
 app.get("/api/reports/expiry-waste",requireAuth,asyncRoute(async(req,res)=>{
@@ -468,7 +584,7 @@ app.post("/api/qr-tokens",requireAuth,rateLimit({windowMs:15*60*1000,limit:60,st
   await pool.query("DELETE FROM product_qr_tokens WHERE expires_at<NOW()-INTERVAL '1 day' OR consumed_at<NOW()-INTERVAL '1 day'");
   const token=createQrToken(),expiresAt=new Date(Date.now()+2*60*1000).toISOString();
   await pool.query("INSERT INTO product_qr_tokens(id,shop_id,product_id,token_hash,expires_at) VALUES($1,$2,$3,$4,$5)",[id(),req.user.shopId,productId,hashQrToken(token),expiresAt]);
-  const origin=process.env.PUBLIC_APP_URL||(req.protocol+"://"+req.get("host"));
+  const origin=resolvePublicOrigin(req);
   const scanUrl=new URL("/scan/"+token,origin).toString();
   const qrDataUrl=await QRCode.toDataURL(scanUrl,{errorCorrectionLevel:"M",width:320,margin:2,color:{dark:"#203a29",light:"#ffffff"}});
   res.status(201).set("Cache-Control","no-store").json({productId,productName:product.rows[0].name,token,scanUrl,qrDataUrl,expiresAt});
@@ -490,7 +606,7 @@ app.post("/api/recycle-bin/:id/restore",requireAuth,asyncRoute(async(req,res)=>{
     if(!rr.rowCount)throw fail(404,"Recycle-bin record not found.");
     const rb=rr.rows[0],tz=await client.query("SELECT timezone FROM shop_settings WHERE shop_id=$1",[req.user.shopId]);
     const today=await client.query("SELECT (NOW() AT TIME ZONE $1)::date AS today",[tz.rows[0]?.timezone||"Asia/Kolkata"]);
-    if(expiry<String(today.rows[0].today).slice(0,10))throw fail(400,"Restore blocked: expiry date is still in the past.");
+    if(isBeforeDate(expiry,today.rows[0]?.today))throw fail(400,"Restore blocked: expiry date is still in the past.");
     const p=await client.query("SELECT * FROM products WHERE id=$1 AND shop_id=$2 FOR UPDATE",[rb.product_id,req.user.shopId]);
     if(!p.rowCount)throw fail(404,"Original product record is not available.");
     await client.query("UPDATE products SET expiry_date=$3,stock=$4,is_active=TRUE,updated_at=NOW() WHERE id=$1 AND shop_id=$2",[rb.product_id,req.user.shopId,expiry,rb.stock_at_expiry]);
@@ -527,14 +643,15 @@ app.put("/api/settings",requireAuth,asyncRoute(async(req,res)=>{
 }));
 
 async function runAutoPurchaseCycle(){
-  const shops=await pool.query("SELECT shop_id,max_auto_purchase_amount FROM shop_settings WHERE auto_purchase_enabled=TRUE");
+  const shops=await pool.query("SELECT shop_id,max_auto_purchase_amount,timezone FROM shop_settings WHERE auto_purchase_enabled=TRUE");
   for(const shop of shops.rows){
     try{
       const plan=await getPurchasePlan(shop.shop_id);if(!plan.items.length)continue;
       const open=await pool.query("SELECT 1 FROM purchase_orders WHERE shop_id=$1 AND source='automation' AND status IN ('approved_awaiting_supplier','submitted','partially_received') LIMIT 1",[shop.shop_id]);
       if(open.rowCount)continue;
+      const tz=shop.timezone||"Asia/Kolkata";
       if(plan.estimatedTotal>Number(shop.max_auto_purchase_amount)){
-        const today=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kolkata",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+        const today=new Intl.DateTimeFormat("en-CA",{timeZone:tz,year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
         const prior=await pool.query("SELECT 1 FROM notifications WHERE shop_id=$1 AND kind='purchase_limit' AND payload->>'date'=$2 LIMIT 1",[shop.shop_id,today]);
         if(!prior.rowCount)await notify(shop.shop_id,"purchase_limit","Purchase requires review","Suggested purchase total "+plan.estimatedTotal+" exceeds the configured auto-purchase limit of "+Number(shop.max_auto_purchase_amount)+".",{date:today,estimatedTotal:plan.estimatedTotal,limit:Number(shop.max_auto_purchase_amount)});
         continue;
@@ -544,10 +661,10 @@ async function runAutoPurchaseCycle(){
         await client.query("BEGIN");
         await client.query("INSERT INTO purchase_orders(id,shop_id,status,source,total_cost) VALUES($1,$2,'approved_awaiting_supplier','automation',$3)",[poId,shop.shop_id,plan.estimatedTotal]);
         for(const line of plan.items)await client.query("INSERT INTO purchase_order_items(id,purchase_order_id,product_id,product_name,quantity,unit_cost) VALUES($1,$2,$3,$4,$5,$6)",[id(),poId,line.productId,line.name,line.quantity,line.unitCost]);
+        await notify(shop.shop_id,"purchase_automation","Purchase order prepared automatically","An order totaling "+plan.estimatedTotal+" was created within your limit. External supplier submission is not connected; send it through an authorized supplier channel.",{purchaseOrderId:poId,estimatedTotal:plan.estimatedTotal},client);
         await client.query("COMMIT");
       }catch(err){await client.query("ROLLBACK").catch(()=>{});throw err;}
       finally{client.release();}
-      await notify(shop.shop_id,"purchase_automation","Purchase order prepared automatically","An order totaling "+plan.estimatedTotal+" was created within your limit. External supplier submission is not connected; send it through an authorized supplier channel.",{purchaseOrderId:poId,estimatedTotal:plan.estimatedTotal});
     }catch(err){console.error("Auto-purchase cycle failed for shop",shop.shop_id,err.message);}
   }
 }
@@ -592,7 +709,7 @@ app.post("/api/demo-product-qr",rateLimit({windowMs:15*60*1000,limit:60,standard
  const product=generateDemoProduct(),token=createQrToken(),demoOnly=req.body?.demoMode===true,expiresAt=new Date(Date.now()+15*60*1000).toISOString();
  await pool.query("DELETE FROM product_import_qr_tokens WHERE expires_at<NOW()-INTERVAL '1 day' OR consumed_at<NOW()-INTERVAL '1 day'");
  await pool.query("INSERT INTO product_import_qr_tokens(id,token_hash,product_snapshot,expires_at,demo_only) VALUES($1,$2,$3::jsonb,$4,$5)",[id(),hashQrToken(token),JSON.stringify(product),expiresAt,demoOnly]);
- const origin=process.env.PUBLIC_APP_URL||(req.protocol+"://"+req.get("host")),url=new URL("/import-product/"+token,origin);
+ const origin=resolvePublicOrigin(req),url=new URL("/import-product/"+token,origin);
  if(demoOnly)url.searchParams.set("mode","demo");
  const qrDataUrl=await QRCode.toDataURL(url.toString(),{errorCorrectionLevel:"M",width:360,margin:2,color:{dark:"#203a29",light:"#ffffff"}});
  res.status(201).set("Cache-Control","no-store").json({token,product,scanUrl:url.toString(),qrDataUrl,expiresAt,demoMode:demoOnly});
@@ -623,7 +740,7 @@ app.post("/api/product-import/consume",requireAuth,rateLimit({windowMs:15*60*100
   if((await client.query("SELECT 1 FROM products WHERE shop_id=$1 AND LOWER(sku)=LOWER($2)",[shopId,sku])).rowCount)sku=sku+"-"+crypto.randomBytes(2).toString("hex").toUpperCase();
   const product=await client.query("INSERT INTO products(id,shop_id,name,sku,category,unit,stock,reorder_at,unit_cost,selling_price,lead_time_days,expiry_date,is_demo) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,TRUE) RETURNING *",[id(),shopId,p.name,sku,p.category,p.unit,p.stock,p.reorderAt,p.cost,p.price,p.leadTimeDays,p.expiry||null]);
   await client.query("UPDATE product_import_qr_tokens SET consumed_at=NOW(),consumed_by_shop_id=$2 WHERE id=$1",[t.rows[0].id,shopId]);
-  await notify(shopId,"demo_product_added","Demo product added to inventory",p.name+" was added from a one-time demo QR code.",{productId:product.rows[0].id,source:"qr_demo"});
+  await notify(shopId,"demo_product_added","Demo product added to inventory",p.name+" was added from a one-time demo QR code.",{productId:product.rows[0].id,source:"qr_demo"},client);
   await client.query("COMMIT");res.status(201).set("Cache-Control","no-store").json({ok:true,product:productDto(product.rows[0]),shopName:req.user.shopName});
  }catch(err){await client.query("ROLLBACK").catch(()=>{});throw err;}finally{client.release();}
 }));
@@ -667,10 +784,15 @@ app.get("/api/customer-orders",requireAuth,asyncRoute(async(req,res)=>{
 }));
 app.put("/api/customer-orders/:id/status",requireAuth,asyncRoute(async(req,res)=>{
  const status=text(req.body.status);if(!["accepted","declined"].includes(status))throw fail(400,"Choose accepted or declined.");
- const r=await pool.query("UPDATE customer_orders SET status=$3,updated_at=NOW() WHERE id=$1 AND shop_id=$2 AND status='requested' RETURNING id,status",[req.params.id,req.user.shopId,status]);
- if(!r.rowCount)throw fail(409,"Order request is no longer pending.");
- await notify(req.user.shopId,"customer_order","Customer order request updated","Order "+r.rows[0].id.slice(0,8)+" was marked "+status+".",{orderId:r.rows[0].id,status});
- res.json({ok:true,status:r.rows[0].status});
+ const client=await pool.connect();
+ try{
+  await client.query("BEGIN");
+  const r=await client.query("UPDATE customer_orders SET status=$3,updated_at=NOW() WHERE id=$1 AND shop_id=$2 AND status='requested' RETURNING id,status",[req.params.id,req.user.shopId,status]);
+  if(!r.rowCount)throw fail(409,"Order request is no longer pending.");
+  await notify(req.user.shopId,"customer_order","Customer order request updated","Order "+r.rows[0].id.slice(0,8)+" was marked "+status+".",{orderId:r.rows[0].id,status},client);
+  await client.query("COMMIT");
+  res.json({ok:true,status:r.rows[0].status});
+ }catch(err){await client.query("ROLLBACK").catch(()=>{});throw err;}finally{client.release();}
 }));
 
 app.use("/api",(req,res)=>res.status(404).json({error:"API endpoint not found."}));
@@ -681,18 +803,33 @@ app.use((err,req,res,next)=>{
 });
 
 let server;
+const timers=[];
+const AUTO_PURCHASE_INTERVAL_MS=15*60*1000;
+let autoPurchaseRunning=false;
+async function scheduledAutoPurchaseCycle(){
+  if(autoPurchaseRunning)return;
+  autoPurchaseRunning=true;
+  try{await runAutoPurchaseCycle();}
+  catch(err){console.error("Auto-purchase cycle failed:",err.message);}
+  finally{autoPurchaseRunning=false;}
+}
 async function start(){
   await initializeDatabase();
   await runExpirySweep().catch(err=>console.error("Initial expiry sweep failed:",err.message));
   server=app.listen(PORT,"0.0.0.0",()=>console.log("Easy Gateway listening on port "+PORT));
-  setInterval(()=>runExpirySweep().catch(err=>console.error("Expiry sweep failed:",err.message)),60000).unref();
+  timers.push(setInterval(()=>runExpirySweep().catch(err=>console.error("Expiry sweep failed:",err.message)),60000).unref());
+  // Settings only persist the auto-purchase policy, so the cycle has to be scheduled here.
+  // Shops with automation disabled are skipped by the query inside runAutoPurchaseCycle().
+  timers.push(setTimeout(scheduledAutoPurchaseCycle,10000).unref());
+  timers.push(setInterval(scheduledAutoPurchaseCycle,AUTO_PURCHASE_INTERVAL_MS).unref());
 }
 async function shutdown(signal){
   console.log("Received "+signal+"; shutting down gracefully.");
+  for(const timer of timers){clearTimeout(timer);clearInterval(timer);}
   if(server)await new Promise(resolve=>server.close(resolve));
   await pool.end();process.exit(0);
 }
 process.on("SIGTERM",()=>shutdown("SIGTERM"));
 process.on("SIGINT",()=>shutdown("SIGINT"));
 if(require.main===module)start().catch(err=>{console.error("Easy Gateway failed to start:",err.message);process.exit(1);});
-module.exports={app,initializeDatabase,runExpirySweep,runAutoPurchaseCycle,calculateDashboard,getPurchasePlan,validDate,validDateRange,createQrToken,hashQrToken,qrProductDetails,escapeHtml,generateDemoProduct,publicCustomerProduct,closeDatabase:()=>pool.end()};
+module.exports={app,initializeDatabase,runExpirySweep,runAutoPurchaseCycle,calculateDashboard,getPurchasePlan,validDate,validDateRange,dateOnly,isBeforeDate,createQrToken,hashQrToken,isLoopbackHostname,resolvePublicOrigin,qrProductDetails,escapeHtml,generateDemoProduct,publicCustomerProduct,buildStockActions,buildSummaryText,closeDatabase:()=>pool.end()};

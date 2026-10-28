@@ -1,0 +1,858 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#203d2b">
+  <meta name="color-scheme" content="light">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-src 'none'; form-action 'self'">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <meta name="description" content="Easy Gateway helps independent retailers manage stock, understand sales, plan purchases, and reward loyal customers.">
+  <title>Easy Gateway — Retail, made clearer</title>
+  <style>
+    :root{--ink:#202a21;--muted:#7c867b;--line:#e7eae3;--paper:#f7f8f5;--white:#fff;--green:#315d3d;--green2:#477d53;--pale:#edf4e9;--gold:#a1761c;--gold-bg:#fff6df;--red:#a84e42;--red-bg:#fff0ed;--blue:#426b91;--blue-bg:#eef4fb;--radius:13px;--shadow:0 8px 25px rgba(27,43,28,.045)}
+    *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #a2c99d;outline-offset:2px}.app{min-height:100vh}.sidebar{position:fixed;inset:0 auto 0 0;width:242px;background:#203a29;color:#e7efe5;padding:24px 14px 14px;display:flex;flex-direction:column;z-index:20}.brand{display:flex;align-items:center;gap:10px;padding:0 12px 28px;font-size:20px;font-weight:770;letter-spacing:-.8px}.brand-mark{width:32px;height:32px;border-radius:9px;background:#edf4e7;color:#274a31;display:grid;place-items:center;font-weight:900;font-size:22px}.brand span span{font-weight:450;color:#b9cbb8}.store{border:1px solid #3d5744;background:#2b4834;color:#fff;border-radius:10px;display:flex;gap:10px;align-items:center;text-align:left;padding:11px;width:100%;margin-bottom:28px}.store-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:8px;background:#3c6045}.store strong{display:block;font-size:12px}.store small{display:block;color:#b9c9b8;font-size:10px;margin-top:3px}.nav-label{font-size:9px;letter-spacing:1.3px;font-weight:800;color:#8fa58f;padding:0 12px;margin:15px 0 8px}.nav-item{border:0;background:transparent;color:#cbd7ca;border-radius:8px;display:flex;align-items:center;gap:12px;width:100%;padding:11px 12px;text-align:left;font-size:12px;margin:3px 0}.nav-item:hover{background:#2a4933;color:#fff}.nav-item.active{color:#fff;background:#365b40;font-weight:750;box-shadow:inset 3px 0 #b5d39e}.nav-item .nav-icon{display:inline-grid;place-items:center;width:18px;height:18px;font-size:14px}.nav-item .count{margin-left:auto;padding:2px 6px;border-radius:5px;background:#496b4e;font-size:10px}.side-spacer{flex:1}.side-note{margin:18px 5px 14px;padding:13px;border:1px solid #3d5744;border-radius:10px}.side-note strong{display:block;font-size:11px}.side-note p{font-size:10px;color:#b5c5b3;margin:6px 0 0;line-height:1.5}.profile{border-top:1px solid #3b5541;padding:15px 6px 5px;display:flex;align-items:center;gap:10px}.avatar{display:grid;place-items:center;width:33px;height:33px;border-radius:9px;background:#e4eee0;color:#315d3d;font-size:10px;font-weight:800;flex:none}.profile strong{display:block;font-size:11px}.profile small{color:#b5c5b3;font-size:10px}.main{margin-left:242px;min-height:100vh}.topbar{height:66px;background:rgba(255,255,255,.86);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 34px;gap:16px;position:sticky;top:0;z-index:10;backdrop-filter:blur(12px)}.crumb{display:flex;align-items:center;gap:9px;color:#8a9388;font-size:11px}.crumb strong{color:#354336;font-weight:700}.top-actions{display:flex;align-items:center;gap:13px}.search{width:240px;height:34px;display:flex;align-items:center;gap:8px;padding:0 10px;border:1px solid var(--line);border-radius:7px;background:#fff;color:#8b9587}.search input{min-width:0;width:100%;border:0;outline:0;font-size:11px;color:var(--ink)}.search kbd{border:1px solid var(--line);padding:2px 4px;border-radius:4px;font-size:9px;background:#fafbf9;white-space:nowrap}.icon-btn{border:1px solid var(--line);background:#fff;border-radius:7px;width:34px;height:34px;color:#667363;display:grid;place-items:center}.content{max-width:1500px;margin:0 auto;padding:30px 34px 20px}.heading{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:22px}.eyebrow{font-size:9px;letter-spacing:1.5px;font-weight:800;color:#71916b;margin-bottom:8px}.eyebrow:before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:#6e9d64;margin-right:7px;vertical-align:1px}.heading h1{font-size:29px;letter-spacing:-1.15px;line-height:1.15;margin:0;color:#202d22;font-weight:730}.heading p{font-size:12px;color:var(--muted);margin:8px 0 0}.heading-actions{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.demo{font-size:10px;color:#9a7b31;background:#fff8e8;border:1px solid #f2e8cb;padding:7px 9px;border-radius:6px}.btn{border:1px solid transparent;padding:9px 12px;display:inline-flex;gap:7px;align-items:center;justify-content:center;border-radius:7px;font-size:11px;font-weight:700;white-space:nowrap}.btn-primary{background:var(--green);color:white}.btn-primary:hover{background:#274c32}.btn-secondary{background:#fff;border-color:#dfe4da;color:#465345}.btn-secondary:hover{background:#f4f6f1}.btn:disabled{opacity:.45;cursor:not-allowed}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin-bottom:15px}.metric{background:white;border:1px solid var(--line);border-radius:var(--radius);padding:16px 17px 14px;min-width:0;box-shadow:var(--shadow)}.metric-top{display:flex;align-items:center;justify-content:space-between;font-size:10px;color:#7f897d}.metric-symbol{width:31px;height:31px;border-radius:8px;background:var(--pale);color:var(--green2);display:grid;place-items:center;font-size:15px}.metric-value{font-size:26px;letter-spacing:-1px;font-weight:750;margin:12px 0 5px;color:#253428}.metric-sub{font-size:10px;color:#929b90}.positive{color:#4e8852;font-weight:700}.warning{color:var(--gold);font-weight:700}.main-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(280px,.9fr);gap:15px;margin-bottom:15px}.bottom-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(270px,.85fr);gap:15px;margin-bottom:15px}.panel{background:white;border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);min-width:0;overflow:hidden}.panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:15px;padding:18px 18px 13px}.panel-title{font-size:13px;font-weight:770;color:#354236}.panel-caption{font-size:10px;color:#929a90;margin-top:4px;line-height:1.45}.panel-body{padding:0 18px 16px}.link-btn{border:0;background:transparent;color:#47754d;font-size:10px;font-weight:750;padding:3px}.chart-summary{display:flex;justify-content:space-between;align-items:flex-end;margin:0 18px 8px}.muted-label{display:block;color:#8a9387;font-size:9px;margin-bottom:4px}.chart-summary strong{font-size:22px;letter-spacing:-.5px}.chart-badge{font-size:10px;color:#538057;display:flex;align-items:center;gap:5px}.chart{display:block;width:100%;height:210px}.chart-labels{display:flex;justify-content:space-between;color:#92998f;font-size:9px;padding:2px 18px 12px}.chart-legend{display:flex;gap:12px;align-items:center;font-size:9px;color:#7b8679;padding:0 18px 12px}.legend-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;background:#477d53}.legend-dot.forecast{background:#b7c7b0}.purchase-summary{margin:0 18px 7px;padding:12px;background:#f5f8f2;border-radius:8px;display:flex;align-items:center;justify-content:space-between}.purchase-summary small{display:block;font-size:9px;color:#859080}.purchase-summary strong{font-size:20px;letter-spacing:-.5px;display:block;margin-top:4px}.pill-count{font-size:9px;color:#52714e;background:#e7f0e1;padding:5px 7px;border-radius:5px;white-space:nowrap}.purchase-list{padding:0 18px}.purchase-row{display:flex;align-items:center;gap:9px;padding:11px 0;border-bottom:1px solid #f0f2ed}.product-initial{width:31px;height:31px;display:grid;place-items:center;background:#edf3e9;color:#4b754a;border-radius:8px;font-size:10px;font-weight:800;flex:none}.purchase-copy{min-width:0;flex:1}.purchase-copy strong{display:block;font-size:10px}.purchase-copy small{display:block;color:#899285;font-size:9px;margin-top:3px}.risk{font-size:8px;padding:4px 6px;border-radius:5px;background:#fff3dd;color:#95681b;white-space:nowrap}.risk.high{background:#fff0ed;color:#a74f44}.panel-foot{border-top:1px solid #edf0e9;padding:12px 18px;display:flex;justify-content:space-between;align-items:center;gap:10px;color:#8a9387;font-size:9px}.table-wrap{overflow:auto;width:100%}table{border-collapse:collapse;width:100%;white-space:nowrap}th{text-align:left;background:#fafbf9;padding:11px 15px;color:#8c9588;text-transform:uppercase;letter-spacing:.7px;font-size:8px;font-weight:800;border-top:1px solid #eff1ec;border-bottom:1px solid #eff1ec}td{padding:12px 15px;font-size:10px;border-bottom:1px solid #f0f2ee;color:#5b6658}tbody tr:last-child td{border-bottom:0}td strong{color:#354236;font-weight:750}.variance-up{color:#4b8550;font-weight:750}.variance-down{color:#a76c2b;font-weight:750}.subtext{display:block;font-size:9px;color:#9aa195;margin-top:3px}.badge{display:inline-block;font-size:8px;font-weight:800;border-radius:5px;padding:5px 7px;background:#edf4e9;color:#4d7b4e}.badge.warn{background:#fff4df;color:#986b22}.badge.neutral{background:#f0f2ee;color:#727b70}.footnote{font-size:9px;color:#9aa295;padding:11px 15px;border-top:1px solid #eff1ec}.attention-row{display:flex;align-items:center;gap:10px;padding:12px 18px;border-top:1px solid #f0f2ed}.attention-symbol{width:30px;height:30px;border-radius:8px;background:#fff4df;color:#997027;display:grid;place-items:center;flex:none}.attention-copy{min-width:0;flex:1}.attention-copy strong{font-size:10px;display:block}.attention-copy small{font-size:9px;display:block;color:#8e978a;margin-top:3px}.row-action{border:0;background:transparent;color:#879382;font-size:17px}.footer{display:flex;align-items:center;gap:8px;color:#a0a79d;font-size:9px;padding:16px 2px}.footer-spacer{flex:1}.footer-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#8db280;margin-right:5px}.section-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:15px}.mini{padding:15px 16px;background:#fff;border:1px solid var(--line);border-radius:10px}.mini span{display:block;font-size:9px;color:#8a9387}.mini strong{display:block;font-size:21px;margin:7px 0 3px;letter-spacing:-.5px}.mini small{font-size:9px;color:#9aa295}.toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:15px 17px;border-bottom:1px solid var(--line)}.toolbar h2{font-size:13px;margin:0}.toolbar p{font-size:10px;color:#91998f;margin:4px 0 0}.inline-search{border:1px solid var(--line);border-radius:6px;padding:8px 10px;min-width:200px;font-size:10px}.status-box{padding:15px 17px;border:1px solid #e4eadf;border-radius:8px;background:#f5f8f1;color:#61785a;margin-bottom:15px;font-size:11px}.status-box strong{display:block;margin-bottom:4px;color:#3f6841}.status-box p{margin:0;line-height:1.55;color:#71836d;font-size:10px}.loyalty-layout{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(270px,.75fr);gap:15px;margin-bottom:15px}.rule-panel{padding:17px}.field{display:grid;gap:6px;font-size:10px;color:#677163;margin-bottom:12px}.field input,.field select{border:1px solid #dfe4da;border-radius:6px;padding:10px;background:white;color:#354236;min-width:0;width:100%;font-size:11px}.example-card{background:#f7f8f4;border:1px solid #e9ece5;padding:13px;border-radius:8px;margin:14px 0}.example-card small{display:block;color:#90998c;font-size:9px}.example-card strong{display:block;font-size:20px;margin:5px 0}.coin-equation{border-top:1px solid #e5e9e0;padding-top:10px;margin-top:10px;display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:10px;color:#7e8979}.coin-value{color:#97701b;font-weight:800}.coin-cell{color:#9a741c;font-weight:800}.coin-cell:before{content:"◆";font-size:8px;margin-right:5px}.muted{color:#91998d}.modal-backdrop{position:fixed;inset:0;background:rgba(22,34,24,.48);display:grid;place-items:center;padding:18px;z-index:50}.modal{width:min(560px,100%);max-height:calc(100vh - 36px);overflow:auto;background:#fff;border-radius:14px;box-shadow:0 25px 80px rgba(0,0,0,.2);padding:22px}.modal-head{display:flex;justify-content:space-between;gap:15px;margin-bottom:20px}.modal-head h2{font-size:21px;margin:0;letter-spacing:-.5px}.modal-head p{font-size:11px;color:#899286;margin:6px 0 0}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field.span{grid-column:1/-1}.form-actions{display:flex;justify-content:flex-end;gap:8px;grid-column:1/-1;padding-top:9px}.sale-summary{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:12px;background:#f8f9f6;border-radius:7px;font-size:10px}.coin-preview{grid-column:1/-1;display:flex;align-items:center;gap:9px;padding:11px;background:var(--gold-bg);border:1px solid #f0e4bf;border-radius:7px;color:#8e6c21;font-size:10px}.coin-preview strong{margin-left:auto;white-space:nowrap}.toast{position:fixed;bottom:22px;right:22px;max-width:min(430px,calc(100vw - 30px));padding:13px 15px;background:#203a29;color:#fff;border-radius:8px;box-shadow:0 10px 30px #0002;font-size:11px;z-index:80}.mobile-menu{display:none}.empty{padding:25px;text-align:center;color:#90998d;font-size:11px}.expiry-date{font-size:9px;color:#6f7d69}.expiry-date.danger{color:#a84e42;font-weight:800}.recycled-row{background:#fffaf8}.notification-line{display:flex;gap:10px;padding:12px 16px;border-top:1px solid #f0f2ed}.notification-mark{width:30px;height:30px;border-radius:8px;background:#fff0ed;color:#a84e42;display:grid;place-items:center;flex:none}.notification-line strong{display:block;font-size:10px}.notification-line small{display:block;color:#8e978a;margin-top:3px;font-size:9px}
+    @media(max-width:1150px){.sidebar{width:210px}.main{margin-left:210px}.content{padding:25px 22px}.topbar{padding:0 22px}.metrics{gap:9px}.metric{padding:14px}.metric-value{font-size:23px}.main-grid,.bottom-grid{grid-template-columns:1fr}.loyalty-layout{grid-template-columns:1fr}}
+    @media(max-width:760px){.sidebar{transform:translateX(-100%);transition:transform .2s ease;width:250px}.sidebar.open{transform:translateX(0)}.main{margin-left:0}.topbar{height:58px;padding:0 14px}.content{padding:21px 13px}.heading{align-items:flex-start;flex-direction:column}.heading h1{font-size:25px}.heading-actions{width:100%}.search{width:min(200px,52vw)}.metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.metric{padding:13px}.metric-value{font-size:21px}.section-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.main-grid{grid-template-columns:minmax(0,1fr)}.bottom-grid{grid-template-columns:minmax(0,1fr)}.toolbar{align-items:flex-start;flex-direction:column}.inline-search{width:100%}.footer{flex-wrap:wrap}.mobile-menu{display:grid}.crumb span:first-child,.crumb svg{display:none}.top-actions{gap:7px}.profile small{display:none}.store{margin-bottom:18px}.form-grid{grid-template-columns:1fr}.field.span,.form-actions,.sale-summary,.coin-preview{grid-column:auto}.modal{padding:18px}.modal-head h2{font-size:19px}}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;scroll-behavior:auto!important}}
+    .waste-layout{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(280px,.8fr);gap:15px;margin-bottom:15px}.waste-chart{padding:0 18px 18px}.waste-bar-row{display:grid;grid-template-columns:90px minmax(70px,1fr) 110px;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f0f2ed;font-size:10px}.waste-track{height:9px;background:#edf1e9;border-radius:5px;overflow:hidden}.waste-track span{display:block;height:100%;background:#477d53;border-radius:5px}.waste-value{text-align:right;font-weight:750}.qr-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,.8fr);gap:15px}.qr-preview{padding:22px;text-align:center;display:grid;align-content:start;justify-items:center}.qr-image{width:min(320px,100%);aspect-ratio:1;background:#fff;border:1px solid #e7eae3;border-radius:12px;padding:12px;object-fit:contain}.qr-product{font-size:16px;font-weight:800;margin:14px 0 4px}.qr-note{font-size:10px;color:#7f897b;max-width:360px;line-height:1.7}.qr-empty{width:min(320px,100%);aspect-ratio:1;border:1px dashed #d8e1d3;background:#f8faf6;border-radius:12px;display:grid;place-items:center;color:#899486;padding:22px;text-align:center;font-size:12px}.report-filter{display:flex;gap:10px;align-items:end;flex-wrap:wrap;padding:16px 18px;border-bottom:1px solid var(--line)}.report-filter .field{min-width:150px;margin:0;flex:1}.report-filter .btn{height:36px}
+    @media(max-width:900px){.waste-layout,.qr-layout{grid-template-columns:1fr}}
+    @media(max-width:760px){.waste-bar-row{grid-template-columns:72px minmax(50px,1fr) 90px;gap:7px}.report-filter{align-items:stretch}.report-filter .field{min-width:130px}}
+
+    .auth-mode .app{display:none}#authRoot{display:none}.auth-mode #authRoot{display:grid;min-height:100vh;place-items:center;padding:24px;background:radial-gradient(circle at 15% 15%,#e8f0e2 0,transparent 35%),#f7f8f5}.auth-shell{display:grid;grid-template-columns:minmax(0,1fr) minmax(310px,.82fr);width:min(920px,100%);overflow:hidden;border:1px solid #e0e7dc;border-radius:20px;background:white;box-shadow:0 25px 85px rgba(29,47,31,.12)}.auth-brand-pane{padding:42px;background:#203a29;color:#edf4e7;display:flex;flex-direction:column;justify-content:space-between;min-height:510px}.auth-brand{display:flex;align-items:center;gap:10px;font-size:20px;font-weight:800;letter-spacing:-.6px}.auth-brand .brand-mark{background:#edf4e7;color:#274a31}.auth-brand span span{font-weight:450;color:#b9cbb8}.auth-pitch{margin:auto 0;padding:40px 0}.auth-pitch .eyebrow{color:#a9c59e}.auth-pitch h1{font-size:35px;line-height:1.11;letter-spacing:-1.4px;margin:0 0 14px;max-width:390px}.auth-pitch p{font-size:13px;line-height:1.8;color:#c6d4c3;max-width:350px}.auth-bullets{display:grid;gap:12px;margin-top:24px}.auth-bullet{display:flex;align-items:center;gap:10px;color:#e5eee1;font-size:12px}.auth-check{width:22px;height:22px;border-radius:6px;background:#365b40;display:grid;place-items:center}.auth-brand-foot{font-size:10px;color:#aebfaa}.auth-form-pane{padding:42px 38px;display:flex;flex-direction:column;justify-content:center}.auth-form-pane h2{font-size:25px;letter-spacing:-.8px;margin:0}.auth-form-pane .sub{font-size:11px;color:#879284;margin:8px 0 24px;line-height:1.6}.auth-form{display:grid;gap:14px}.auth-field{display:grid;gap:7px;font-size:10px;color:#586556;font-weight:700}.auth-field input{width:100%;padding:12px;border:1px solid #dfe5da;border-radius:7px;font-size:12px;outline:none}.auth-field input:focus{border-color:#70956d;box-shadow:0 0 0 3px #eaf1e7}.auth-error{display:none;border:1px solid #efd0ca;background:#fff2ef;color:#a5483b;padding:10px;border-radius:7px;font-size:10px;line-height:1.5}.auth-error.show{display:block}.auth-submit{width:100%;padding:12px;font-size:12px;margin-top:5px}.auth-switch{font-size:10px;color:#7f897b;text-align:center;margin-top:18px}.auth-switch button{border:0;background:none;color:#315d3d;font-weight:800}.auth-small{font-size:9px;color:#9aa295;line-height:1.6;margin-top:20px}.btn-danger{background:#fff0ed;color:#a5483b;border-color:#f2d3cd}.item-actions{display:flex;gap:6px;align-items:center}.pill{display:inline-block;border-radius:5px;padding:5px 7px;font-size:8px;font-weight:800;background:#edf4e9;color:#4c7749}.pill.red{background:#fff0ed;color:#a5483b}.pill.gold{background:#fff4df;color:#91671f}.form-wide{grid-column:1/-1}.notification-unread{background:#fffaf0}.settings-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:18px}.settings-form .field{margin:0}.settings-form .form-actions{grid-column:1/-1}.auth-status{font-size:10px;color:#7e8d79;margin-top:12px}
+    @media(max-width:760px){.auth-mode #authRoot{padding:12px}.auth-shell{grid-template-columns:1fr}.auth-brand-pane{min-height:auto;padding:22px}.auth-pitch{padding:24px 0 8px}.auth-pitch h1{font-size:26px}.auth-pitch p{margin-bottom:0}.auth-bullets{display:none}.auth-brand-foot{display:none}.auth-form-pane{padding:26px 22px}.settings-form{grid-template-columns:1fr}.settings-form .form-actions{grid-column:auto}}
+
+    .customer-mode .app,.customer-mode #authRoot,.customer-mode #modalRoot,.customer-mode #toastRoot{display:none!important}.customer-mode #customerPortalRoot{display:block!important;min-height:100vh;padding:24px;background:#f7f8f5;color:#202a21}.customer-shell{max-width:1180px;margin:0 auto}.customer-top{display:flex;align-items:center;gap:12px;padding:8px 0 24px}.customer-logo{width:38px;height:38px;display:grid;place-items:center;background:#203a29;color:white;border-radius:10px;font-size:22px;font-weight:800}.customer-brand{font-size:18px;font-weight:800}.customer-subbrand{font-size:11px;color:#7d8979;margin-top:3px}.customer-hero{padding:28px;background:#203a29;color:white;border-radius:16px;margin-bottom:20px}.customer-hero .eyebrow{color:#b8d6ad}.customer-hero h1{font-size:clamp(25px,4vw,38px);line-height:1.12;margin:0 0 10px;letter-spacing:-1px}.customer-hero p{max-width:640px;color:#d0ddcc;font-size:13px;margin:0}.customer-layout{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(290px,.75fr);gap:18px;align-items:start}.customer-panel{background:white;border:1px solid #e4e9e0;border-radius:13px;overflow:hidden}.customer-panel-head{padding:17px 18px;border-bottom:1px solid #eef1eb;display:flex;justify-content:space-between;gap:10px;align-items:center}.customer-panel-head h2{font-size:15px;margin:0}.customer-panel-head p{font-size:10px;color:#879183;margin:5px 0 0}.customer-search{margin:14px 18px;width:calc(100% - 36px);border:1px solid #dfe4da;border-radius:7px;padding:10px;font:inherit;font-size:12px}.customer-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;padding:0 18px 18px}.customer-product{border:1px solid #e7ebe3;border-radius:10px;padding:14px;min-width:0}.customer-product .category{font-size:10px;color:#75906f}.customer-product h3{font-size:13px;line-height:1.35;margin:8px 0}.customer-product .sku{font-size:10px;color:#929b90}.customer-product .price{font-size:18px;font-weight:800;margin:12px 0}.customer-product button{width:100%}.customer-basket{padding:18px}.customer-basket h2{font-size:15px;margin:0 0 12px}.customer-cart-row{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #edf0e9;font-size:11px}.customer-cart-row strong{display:block}.customer-cart-row small{color:#8b9487}.customer-cart-row button{border:1px solid #dfe4da;background:white;border-radius:6px;padding:3px 7px}.customer-total{display:flex;justify-content:space-between;font-size:13px;font-weight:800;padding:15px 0}.customer-form{display:grid;gap:10px;margin-top:10px}.customer-form label{display:grid;gap:5px;font-size:10px;color:#687363}.customer-form input,.customer-form textarea{border:1px solid #dfe4da;border-radius:6px;padding:10px;font:inherit;font-size:12px;width:100%;min-width:0}.customer-form textarea{min-height:65px;resize:vertical}.customer-notice{margin-bottom:16px;padding:13px 15px;border:1px solid #d9e8d3;background:#eff6eb;color:#355c37;border-radius:9px;font-size:12px}.customer-footer{font-size:10px;color:#929b90;padding:18px 0}.mode-on{background:#315d3d!important;color:white!important;border-color:#315d3d!important}.qr-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:min(400px,100%);margin-top:14px;text-align:left}.qr-detail-grid>div{padding:10px;border:1px solid #e7ebe3;border-radius:7px}.qr-detail-grid small{display:block;font-size:9px;color:#8b9487}.qr-detail-grid strong{display:block;margin-top:4px;font-size:11px;overflow-wrap:anywhere}.status-badge-sample{display:inline-block;padding:3px 5px;border-radius:4px;background:#fff4df;color:#946a20;font-size:8px;font-weight:800;margin-left:5px}
+    @media(max-width:900px){.customer-layout{grid-template-columns:1fr}}
+    @media(max-width:760px){.customer-mode #customerPortalRoot{padding:12px}.customer-hero{padding:23px}.customer-grid{grid-template-columns:1fr;padding:0 12px 12px}.customer-panel-head{padding:14px}.customer-basket{padding:14px}.top-actions .btn{font-size:9px;padding:6px 7px}.top-actions .search{width:min(135px,33vw)}}
+    /* ---- Easy Gateway Android shell: mobile-first adaptations ---- */
+    html{-webkit-text-size-adjust:100%}
+    body{min-height:100vh;overflow-x:hidden}
+    .topbar{padding-top:env(safe-area-inset-top,0px);height:calc(64px + env(safe-area-inset-top,0px))}
+    .sidebar{padding-top:calc(24px + env(safe-area-inset-top,0px));padding-bottom:calc(14px + env(safe-area-inset-bottom,0px))}
+    .mobile-menu{display:none}
+    .nav-scrim{display:none;position:fixed;inset:0;background:#10211766;backdrop-filter:blur(1px);z-index:19}
+    body.nav-open .nav-scrim{display:block}
+    .mobile-tabbar{display:none}
+    .mobile-tabbar button{border:0;background:transparent;color:#7a8578;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:9px;font-weight:700;padding:6px 2px;border-radius:10px;min-height:50px}
+    .mobile-tabbar button.active{color:var(--green);background:#edf4e9}
+    .mobile-tabbar svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+    .mobile-only{display:none!important}
+    .native-only{display:none!important}
+    body.native-app .native-only{display:initial!important}
+    body.native-app .native-only.btn,body.native-app .native-only.mobile-only{display:inline-flex!important}
+    .screen-back{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;padding:8px 11px;font-size:11px;font-weight:750;margin-bottom:12px}
+    .qr-topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .qr-topbar .screen-back{margin-bottom:0}
+    .qr-topbar+.status-box{margin-top:10px}
+    .mobile-api-note{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:10px;color:var(--muted);margin-top:10px}
+    .mobile-api-note code{background:#eef2ea;border:1px solid #dde5d8;border-radius:5px;padding:2px 6px;font-size:10px;overflow-wrap:anywhere}
+    .inventory-filters{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0 0}
+    .filter-chip{border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:999px;padding:7px 11px;font-size:10px;font-weight:800;min-height:34px}
+    .filter-chip.active{background:var(--green);border-color:var(--green);color:#fff}
+    .scan-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    .connection-state{font-size:11px;color:var(--muted);line-height:1.6}
+    .connection-state strong{color:var(--ink)}
+    .checkout-busy{opacity:.7;pointer-events:none}
+    .qr-image{max-width:min(310px,78vw);height:auto;image-rendering:pixelated}
+    @media(max-width:900px){
+      .customer-mode #customerPortalRoot{padding-top:calc(16px + env(safe-area-inset-top,0px))}
+    }
+    @media(max-width:760px){
+      .mobile-menu{display:grid;flex:0 0 auto}
+      .mobile-tabbar{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));position:fixed;left:0;right:0;bottom:0;z-index:30;background:#fffffff7;border-top:1px solid var(--line);padding:5px 4px calc(5px + env(safe-area-inset-bottom,0px));box-shadow:0 -10px 28px rgba(28,46,31,.08);backdrop-filter:blur(12px)}
+      .auth-mode .mobile-tabbar,.customer-mode .mobile-tabbar{display:none}
+      .main{padding-bottom:calc(68px + env(safe-area-inset-bottom,0px))}
+      .content{padding-bottom:100px}
+      .topbar{gap:6px}
+      .crumb{min-width:0;flex:1;overflow:hidden}
+      .crumb strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .search{display:none}
+      .top-actions .btn{min-height:38px;padding:7px 9px;font-size:10px}
+      .top-actions .avatar{display:none}
+      .heading-actions{align-items:stretch}
+      .heading-actions .btn{min-height:42px}
+      .panel{padding:0;overflow:hidden}
+      .panel-head,.toolbar,.panel-body,.panel-foot{padding-left:14px;padding-right:14px}
+      .toolbar>div:last-child{width:100%}
+      .toolbar .btn{flex:1 1 auto;min-height:42px}
+      .inline-search{min-height:42px;font-size:14px}
+      .field input,.field select,.field textarea,.auth-field input,.customer-form input,.customer-form textarea{font-size:16px!important;min-height:44px}
+      .btn{min-height:42px}
+      .btn-secondary,.btn-primary{font-size:11px}
+      .table-wrap{overflow:visible;border:0;background:transparent}
+      table.mobile-cards{display:block;min-width:0;width:100%}
+      table.mobile-cards thead{display:none}
+      table.mobile-cards tbody{display:grid;gap:10px;padding:0 12px 12px}
+      table.mobile-cards tr{display:block;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 13px;box-shadow:0 2px 8px rgba(32,58,41,.035)}
+      table.mobile-cards td{display:grid;grid-template-columns:minmax(92px,38%) minmax(0,1fr);gap:10px;align-items:start;padding:5px 0;border:0;font-size:12px;line-height:1.45;min-width:0;overflow-wrap:anywhere}
+      table.mobile-cards td::before{content:attr(data-label);color:var(--muted);font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;padding-top:1px}
+      table.mobile-cards td:first-child{display:block;font-size:14px;padding:0 0 9px;margin-bottom:5px;border-bottom:1px solid var(--line)}
+      table.mobile-cards td:first-child::before{display:none}
+      table.mobile-cards td[colspan]{display:block;text-align:center;color:var(--muted)}
+      table.mobile-cards td[colspan]::before{display:none}
+      table.mobile-cards .item-actions{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-start}
+      table.mobile-cards .item-actions .btn{min-height:38px;flex:0 1 auto}
+      table.mobile-cards .subtext{display:block}
+      .recycled-row td:last-child{display:block}
+      .recycled-row td:last-child::before{display:none}
+      .section-metrics{gap:8px}
+      .mini{padding:12px}
+      .waste-chart{padding:0 12px 14px}
+      .waste-bar-row{grid-template-columns:64px minmax(30px,1fr) 74px;font-size:9px}
+      .qr-preview{padding:16px 12px}
+      .qr-layout{gap:12px}
+      .modal-backdrop{align-items:flex-end;padding:0}
+      .modal{width:100%;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:18px 16px calc(20px + env(safe-area-inset-bottom,0px))}
+      .form-grid{gap:11px}
+      .sale-summary,.coin-preview{grid-column:auto}
+      .loyalty-layout{grid-template-columns:1fr}
+      .settings-form{grid-template-columns:1fr;padding:14px}
+      .notification-line{align-items:flex-start;flex-wrap:wrap}
+      .notification-line .btn{min-height:36px}
+      .report-filter{padding:0 14px}
+      .report-filter .btn{min-height:42px}
+      .footer{padding-left:4px;padding-right:4px;font-size:9px}
+      #toastRoot{bottom:calc(74px + env(safe-area-inset-bottom,0px))}
+      .toast{max-width:calc(100vw - 24px);font-size:11px}
+      .auth-mode #authRoot{padding:0}
+      .auth-shell{border-radius:0;border:0;min-height:100vh}
+      .auth-brand-pane{min-height:auto;padding:calc(20px + env(safe-area-inset-top,0px)) 22px 22px}
+      .auth-pitch{padding:20px 0 0}
+      .auth-pitch h1{font-size:30px}
+      .auth-bullets{gap:8px;margin-top:16px}
+      .auth-brand-foot{display:none}
+      .auth-form-pane{padding:26px 20px calc(30px + env(safe-area-inset-bottom,0px))}
+      .auth-small{font-size:10px}
+      .customer-layout{gap:12px}
+      .customer-grid{grid-template-columns:1fr}
+      .customer-top{padding-top:env(safe-area-inset-top,0px);flex-wrap:wrap}
+      .customer-hero{padding:20px}
+      .customer-basket{padding:14px}
+      .customer-mode #customerPortalRoot{padding:0 10px calc(18px + env(safe-area-inset-bottom,0px))}
+    }
+    @media(max-width:390px){
+      .top-actions .btn[data-action="customer-store"]{display:none}
+      .top-actions .btn{padding:7px}
+      .metric-value{font-size:19px}
+      .section-metrics{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body class="auth-mode">
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><span class="brand-mark">e</span><span>easy<span>gateway</span></span></div>
+    <button class="store" data-action="store"><span class="store-icon">EG</span><span><strong>Greenway General</strong><small>Retail workspace · Demo</small></span></button>
+    <nav>
+      <div class="nav-label">WORKSPACE</div>
+      <button class="nav-item active" data-page="dashboard"><span class="nav-icon">▦</span>Overview</button>
+      <button class="nav-item" data-page="inventory"><span class="nav-icon">▤</span>Inventory <span class="count" id="lowCount">3</span></button>
+      <button class="nav-item" data-page="qr"><span class="nav-icon">▦</span>Product QR generator</button>
+      <button class="nav-item" data-page="expiry"><span class="nav-icon">♲</span>Expiry &amp; recycle bin <span class="count" id="expiryCount">0</span></button>
+      <button class="nav-item" data-page="waste"><span class="nav-icon">₹</span>Expiry waste report</button>
+      <button class="nav-item" data-page="sales"><span class="nav-icon">↗</span>Sales &amp; trends</button>
+      <button class="nav-item" data-page="purchasing"><span class="nav-icon">▣</span>Purchase planner</button>
+      <div class="nav-label">RELATIONSHIPS</div>
+      <button class="nav-item" data-page="suppliers"><span class="nav-icon">⇄</span>Suppliers</button>
+      <button class="nav-item" data-page="customers"><span class="nav-icon">♙</span>Customers</button>
+      <button class="nav-item" data-page="orders"><span class="nav-icon">▣</span>Customer order requests</button>
+      <button class="nav-item" data-page="loyalty"><span class="nav-icon">◆</span>Loyalty coins</button>
+      <div class="nav-label">SYSTEM</div>
+      <button class="nav-item" data-page="automations"><span class="nav-icon">⌘</span>Automations</button>
+      <button class="nav-item" data-page="settings"><span class="nav-icon">⚙</span>Settings</button>
+    </nav>
+    <div class="side-spacer"></div>
+    <div class="side-note"><strong>Built for small retailers</strong><p>One place for inventory, sales, purchase planning, and customer rewards.</p></div>
+    <div class="profile"><span class="avatar">GW</span><span><strong>Shop owner</strong><small>Demo workspace</small></span></div>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn mobile-menu" data-action="toggle-nav" aria-label="Open navigation" aria-expanded="false" aria-controls="sidebar">☰</button>
+      <div class="crumb"><span>Workspace</span><span>›</span><strong id="crumbTitle">Store overview</strong></div>
+      <div class="top-actions">
+        <label class="search"><span>⌕</span><input id="globalSearch" aria-label="Search products" placeholder="Search products…"><kbd>Ctrl K</kbd></label>
+        <button class="btn btn-secondary" id="demoModeToggle" data-action="toggle-demo" aria-pressed="false">Demo Mode</button>
+        <button class="btn btn-secondary" data-action="customer-store">Customer Store</button>
+        <button class="icon-btn" data-action="alerts" aria-label="Show alerts">♧</button>
+        <span class="avatar">EG</span>
+      </div>
+    </header>
+    <main class="content" id="content"></main>
+  </div>
+</div>
+<div id="navScrim" class="nav-scrim" data-action="toggle-nav" aria-hidden="true"></div>
+<nav class="mobile-tabbar" aria-label="Primary navigation">
+  <button type="button" data-page="dashboard" aria-label="Overview"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9.5 21v-6h5v6"/></svg><span>Overview</span></button>
+  <button type="button" data-page="inventory" aria-label="Inventory"><svg viewBox="0 0 24 24"><path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/></svg><span>Inventory</span></button>
+  <button type="button" data-action="scan-qr" aria-label="Scan product QR"><svg viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 8h3v3H8zM13 13h3v3h-3z"/></svg><span>Scan</span></button>
+  <button type="button" data-page="orders" aria-label="Customer orders"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg><span>Orders</span></button>
+  <button type="button" data-action="toggle-nav" aria-label="More sections"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>More</span></button>
+</nav>
+<div id="authRoot"></div>
+<div id="modalRoot"></div>
+<div id="toastRoot" aria-live="polite"></div>
+<div id="customerPortalRoot" hidden></div>
+<script src="core.js"></script>
+<script>
+(function(){
+"use strict";
+const isNativeApp=!!(window.Capacitor&&typeof window.Capacitor.isNativePlatform==="function"&&window.Capacitor.isNativePlatform());
+const nativeBridge=isNativeApp?window.Capacitor.Plugins.EasyGatewayNative:null;
+const nativeBarcode=isNativeApp?window.Capacitor.Plugins.CapacitorBarcodeScanner:null;
+const nativeAppPlugin=isNativeApp?window.Capacitor.Plugins.App:null;
+const nativeBrowser=isNativeApp?window.Capacitor.Plugins.Browser:null;
+const nativeShare=isNativeApp?window.Capacitor.Plugins.Share:null;
+let nativeConfig=null,nativeConfigPromise=null,nativeLaunchHooked=false,nativeBackHooked=false;
+if(isNativeApp)document.body.classList.add("native-app");
+
+async function ensureNativeConfig(){
+ if(!nativeBridge)return null;
+ if(nativeConfig)return nativeConfig;
+ if(!nativeConfigPromise)nativeConfigPromise=nativeBridge.getConfig().then(config=>{nativeConfig=config;return config;}).catch(err=>{nativeConfigPromise=null;throw err;});
+ return nativeConfigPromise;
+}
+function configuredApiHost(){
+ try{return new URL((nativeConfig&&nativeConfig.apiBaseUrl)||"https://easy-gateway.onrender.com").host;}catch(_){return "easy-gateway.onrender.com";}
+}
+function nativeApiOrigin(){
+ try{return new URL(nativeConfig.apiBaseUrl).origin;}catch(_){return "https://easy-gateway.onrender.com";}
+}
+function isAllowedQrUrl(url){
+ const hosts=new Set(["easy-gateway.onrender.com",configuredApiHost()]);
+ if(url.protocol==="https:")return hosts.has(url.host);
+ return !!(nativeConfig&&nativeConfig.allowCleartext&&url.protocol==="http:"&&hosts.has(url.host));
+}
+function parseQrValue(raw){
+ const hosts=[...new Set(["easy-gateway.onrender.com",configuredApiHost()])];
+ return window.EGCore.parseLink(raw,{allowedHosts:hosts,allowHttp:!!(nativeConfig&&nativeConfig.allowCleartext)});
+}
+const PENDING_TOKEN_KEY="easyGatewayPendingScanToken",PENDING_MODE_KEY="easyGatewayPendingScanMode";
+function pendingScanToken(){try{return sessionStorage.getItem(PENDING_TOKEN_KEY)||"";}catch(_){return "";}}
+function pendingScanDemoOnly(){try{const v=sessionStorage.getItem(PENDING_MODE_KEY);return v==="1"?true:v==="0"?false:null;}catch(_){return null;}}
+function setPendingScanToken(value,demoOnly){try{if(value){sessionStorage.setItem(PENDING_TOKEN_KEY,value);if(demoOnly===true)sessionStorage.setItem(PENDING_MODE_KEY,"1");else if(demoOnly===false)sessionStorage.setItem(PENDING_MODE_KEY,"0");else sessionStorage.removeItem(PENDING_MODE_KEY);}else{sessionStorage.removeItem(PENDING_TOKEN_KEY);sessionStorage.removeItem(PENDING_MODE_KEY);}}catch(_){}}
+async function openInAppBrowser(url){
+ if(nativeBrowser)await nativeBrowser.open({url});
+ else{const tab=window.open(url,"_blank");if(tab)tab.opener=null;else toast("Your browser blocked the new tab.");}
+}
+async function enterDemoModeForQr(){
+ if(demoMode)return;
+ demoMode=true;updateModeUrl();updateModeChrome();state.qr=null;page="dashboard";query="";
+ loadDemoData();
+ try{await loadData();}catch(_){}
+}
+async function handleScannedValue(raw,options){
+ const parsed=parseQrValue(raw),opts=options||{};
+ if(parsed.error){
+  if(window.EGFeatures&&typeof window.EGFeatures.handleScannedCode==="function"&&window.EGFeatures.handleScannedCode(raw))return true;
+  toast(parsed.error);return false;
+ }
+ if(parsed.kind==="store"){
+  if(opts.fromLaunch){customerView=true;customerStoreSlug=parsed.slug;return true;}
+  await enterCustomerStore(parsed.slug);return true;
+ }
+ if(parsed.kind==="scan"){await openInAppBrowser(parsed.url);return true;}
+ if(parsed.kind==="import"){
+  if(parsed.demoOnly===false&&demoMode){
+   toast("This is a live import QR. Demo Mode is on, so nothing was changed. Turn Demo Mode off and sign in to import it.");
+   return true;
+  }
+  if(parsed.demoOnly===true&&!demoMode){
+   setPendingScanToken(parsed.token,true);
+   await enterDemoModeForQr();
+   if(opts.fromLaunch)return true;
+   toast("Demo Mode on. This QR imports into sample data only.");
+   await consumePendingScanToken();return true;
+  }
+  setPendingScanToken(parsed.token,parsed.demoOnly);
+  if(opts.fromLaunch)return true;
+  if(demoMode){await consumePendingScanToken();return true;}
+  if(!state.user){showAuth("login","Sign in to import the scanned product. It will be added automatically after you sign in.");return true;}
+  await consumePendingScanToken();return true;
+ }
+ return false;
+}
+async function initNativeDeepLinks(){
+ if(!nativeAppPlugin||nativeLaunchHooked)return;
+ nativeLaunchHooked=true;
+ try{const launch=await nativeAppPlugin.getLaunchUrl();if(launch&&launch.url)await handleScannedValue(launch.url,{fromLaunch:true});}catch(_){}
+ try{nativeAppPlugin.addListener("appUrlOpen",async data=>{if(data&&data.url){try{await handleScannedValue(data.url);}catch(err){toast(err.message||"Could not open the shared Easy Gateway link.");}}});}catch(_){}
+}
+function initNativeBackButton(){
+ if(!nativeAppPlugin||nativeBackHooked)return;
+ nativeBackHooked=true;
+ nativeAppPlugin.addListener("backButton",async()=>{
+  if($("modalRoot").innerHTML){$("modalRoot").innerHTML="";return;}
+  if(document.body.classList.contains("nav-open")){setNavOpen(false);return;}
+  if(customerView){exitCustomerStore();return;}
+  if(page!=="dashboard"){goBackPage();return;}
+  try{await nativeAppPlugin.exitApp();}catch(_){}
+ });
+}
+const $=id=>document.getElementById(id);
+const fmt=n=>new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:2}).format(Number(n)||0);
+const num=n=>new Intl.NumberFormat("en-IN",{maximumFractionDigits:2}).format(Number(n)||0);
+const safe=v=>String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const dateLabel=v=>{if(!v)return "Not set";const d=new Date(String(v).slice(0,10)+"T00:00:00");return isNaN(d)?safe(v):d.toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"});};
+const localDate=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");};
+const daysToExpiry=v=>{if(!v)return null;const d=new Date(String(v).slice(0,10)+"T00:00:00"),n=new Date(localDate()+"T00:00:00");return isNaN(d)?null:Math.round((d-n)/86400000);};
+const launchParams=new URLSearchParams(window.location.search);
+const customerPathMatch=window.location.pathname.match(/^\/shop\/([^/]+)\/?$/);
+const launchStoreSlug=launchParams.get("store")||"";
+const launchScanToken=launchParams.get("scanToken")||"";
+const launchGenerateQr=launchParams.get("generateQr")==="1";
+let demoMode=launchParams.get("mode")==="demo",demoData=null,customerCatalog=null,customerCart=[],customerLastOrder=null,customerError="",customerSearch="",customerView=!!(customerPathMatch||launchStoreSlug),customerStoreSlug=customerPathMatch?decodeURIComponent(customerPathMatch[1]):launchStoreSlug,storeCheckoutBusy=false;
+if(launchScanToken){setPendingScanToken(launchScanToken);}
+let state={user:null,settings:{coinThreshold:100,timezone:"Asia/Kolkata",autoPurchaseEnabled:false,maxAutoPurchaseAmount:5000},products:[],sales:[],customers:[],suppliers:[],recycleBin:[],notifications:[],purchaseOrders:[],customerOrders:[],dashboard:{revenueToday:0,ordersToday:0,revenueYesterday:0,lowStockCount:0,productCount:0,loyaltyCoins:0,dailySales:[],anomalies:[],lowStockProducts:[]},purchasePlan:{items:[],estimatedTotal:0},expiryWasteReport:null,expiryWasteLoading:false,expiryWasteError:"",expiryWasteFrom:"",expiryWasteTo:"",qr:null,inventoryFilter:"all",connectionState:"",previousPage:"dashboard"};
+let page=launchParams.get("page")==="qr"?"qr":launchParams.get("page")==="orders"?"orders":launchParams.get("page")==="scanner"?"inventory":"dashboard",query="",authMode="login",toastTimer=null,knownNotifications=new Set(),busy=false,qrIssueInFlight=false,qrStatusCheckInFlight=false;
+
+function demoClone(v){return JSON.parse(JSON.stringify(v));}
+function demoDay(n){const d=new Date();d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);}
+function loadDemoData(){
+ if(demoData)return demoData;
+ try{const raw=sessionStorage.getItem("easyGatewayDemoData");if(raw){demoData=JSON.parse(raw);if(demoData.products&&demoData.customers&&demoData.customerOrders)return demoData;}}catch(_){}
+ const products=[
+ {id:"demo-p1",name:"Basmati Rice 5 kg",sku:"RICE-5KG",barcode:"8901030000012",category:"Grocery",unit:"bag",stock:24,reorderAt:8,cost:410,price:480,leadTimeDays:3,expiry:demoDay(120),isDemo:true},
+ {id:"demo-p2",name:"Toor Dal 1 kg",sku:"DAL-1KG",barcode:"8901030000029",category:"Grocery",unit:"bag",stock:7,reorderAt:10,cost:88,price:108,leadTimeDays:4,expiry:demoDay(75),isDemo:true},
+ {id:"demo-p3",name:"Sunflower Oil 1 L",sku:"OIL-1L",category:"Grocery",unit:"bottle",stock:12,reorderAt:7,cost:118,price:145,leadTimeDays:4,expiry:demoDay(110),isDemo:true},
+ {id:"demo-p4",name:"Tata Salt 1 kg",sku:"SALT-1KG",category:"Grocery",unit:"pack",stock:42,reorderAt:12,cost:18,price:24,leadTimeDays:2,expiry:demoDay(220),isDemo:true},
+ {id:"demo-p5",name:"Filter Coffee 200 g",sku:"COFFEE-200",category:"Beverages",unit:"pack",stock:5,reorderAt:8,cost:95,price:125,leadTimeDays:5,expiry:demoDay(45),isDemo:true},
+ {id:"demo-p6",name:"Bath Soap 125 g",sku:"SOAP-125",barcode:"8901030000067",category:"Personal care",unit:"bar",stock:33,reorderAt:10,cost:27,price:39,leadTimeDays:3,expiry:"",isDemo:true}];
+ const customers=[{id:"demo-c1",name:"Ananya Rao",phone:"98765 43210",coins:186,spend:18640,orders:23,createdAt:new Date().toISOString()},{id:"demo-c2",name:"Rahul Patil",phone:"98450 12345",coins:94,spend:9400,orders:14,createdAt:new Date().toISOString()},{id:"demo-c3",name:"Priya Hegde",phone:"99887 65432",coins:72,spend:7210,orders:11,createdAt:new Date().toISOString()}];
+ const sales=Array.from({length:12},(_,i)=>{const p=products[i%products.length],quantity=1+i%3,time=new Date(Date.now()-(i%10)*86400000).toISOString();return {id:"demo-sale-"+i,productId:p.id,item:p.name,customer:customers[i%3].name,quantity,amount:p.price*quantity,coinsEarned:Math.floor(p.price*quantity/100),status:"Recorded",time,createdAt:time};});
+ demoData={user:{id:"demo-user",name:"Demo Retailer",email:"demo@easygateway.test",role:"owner",shopId:"demo-shop",shopName:"Greenway General",publicSlug:"demo"},settings:{currency:"INR",coinThreshold:100,timezone:"Asia/Kolkata",autoPurchaseEnabled:false,maxAutoPurchaseAmount:5000},products,sales,customers,suppliers:[{id:"demo-s1",name:"Dharwad Wholesale Mart",contactPerson:"Rajesh",phone:"0836 123456",email:"orders@example.test",categories:"Grocery",leadTimeDays:2,minimumOrderAmount:2000,active:true}],recycleBin:[{id:"demo-bin1",productId:"demo-old1",product:{id:"demo-old1",name:"Yogurt Cup 400 g",sku:"YOG-400",category:"Dairy",unit:"cup",cost:42},stockAtExpiry:6,expiry:demoDay(-12),reason:"Expiry date passed",recycledAt:new Date(Date.now()-12*86400000).toISOString()}],notifications:[{id:"demo-n1",kind:"product_expired",title:"Expired product moved to recycle bin",message:"Yogurt Cup 400 g was removed from active inventory.",payload:{},isRead:false,createdAt:new Date().toISOString()}],purchaseOrders:[{id:"demo-po1",supplierId:"demo-s1",supplierName:"Dharwad Wholesale Mart",status:"draft",totalCost:1780,itemCount:2,createdAt:new Date().toISOString(),items:[]}],customerOrders:[{id:"DEMO-ORD-1201",name:"Kavya Desai",phone:"98765 10101",notes:"Call before delivery",items:[{name:"Basmati Rice 5 kg",quantity:1,unitPrice:480,lineTotal:480}],total:480,status:"requested",createdAt:new Date().toISOString()}]};
+ saveDemoData();return demoData;
+}
+function saveDemoData(){if(demoData)try{sessionStorage.setItem("easyGatewayDemoData",JSON.stringify(demoData));}catch(_){}}
+function demoSummary(){const d=loadDemoData(),daily=[];for(let n=6;n>=0;n--){const day=demoDay(-n),rows=d.sales.filter(s=>String(s.time||s.createdAt).slice(0,10)===day);daily.push({day,revenue:rows.reduce((a,s)=>a+s.amount,0),orders:rows.length});}return {revenueToday:daily[6]?.revenue||0,ordersToday:daily[6]?.orders||0,revenueYesterday:daily[5]?.revenue||0,lowStockCount:d.products.filter(p=>p.stock<=p.reorderAt).length,productCount:d.products.length,loyaltyCoins:d.customers.reduce((a,c)=>a+c.coins,0),dailySales:daily,anomalies:[],lowStockProducts:d.products.filter(p=>p.stock<=p.reorderAt).slice(0,5)};}
+function demoPlan(){const d=loadDemoData(),items=d.products.filter(p=>p.stock<=p.reorderAt).map(p=>{const quantity=Math.max(0,p.reorderAt*2-p.stock);return {productId:p.id,name:p.name,sku:p.sku,unit:p.unit,stock:p.stock,reorderAt:p.reorderAt,soldLast30Days:8,averageDailySales:.27,leadTimeDays:p.leadTimeDays,incoming:0,quantity,unitCost:p.cost,estimatedCost:quantity*p.cost,basis:"Demo sales and reorder baseline"};});return {items,estimatedTotal:items.reduce((a,p)=>a+p.estimatedCost,0)};}
+async function demoApi(path,options){
+ const d=loadDemoData(),o=options||{},method=(o.method||"GET").toUpperCase(),b=o.body||{},route=path.split("?")[0],q=new URLSearchParams(path.split("?")[1]||"");
+ const fail=(message,status)=>{const e=new Error(message);e.status=status;throw e;},copy=x=>demoClone(x);
+ if(route==="/auth/me")return {user:copy(d.user)};if(route==="/auth/logout")return {ok:true};if(route==="/bootstrap")return {user:copy(d.user),settings:copy(d.settings),products:copy(d.products),sales:copy(d.sales),customers:copy(d.customers),suppliers:copy(d.suppliers),recycleBin:copy(d.recycleBin),notifications:copy(d.notifications),purchaseOrders:copy(d.purchaseOrders),dashboard:demoSummary()};if(route==="/purchase-plan")return demoPlan();
+ if(route==="/products"&&method==="GET"){const term=(q.get("q")||"").toLowerCase();return {products:copy(d.products.filter(p=>(p.name+" "+p.sku+" "+(p.barcode||"")+" "+p.category).toLowerCase().includes(term)))};}
+ if(route==="/products"&&method==="POST"){const p={id:"demo-p"+Date.now(),name:b.name,sku:b.sku||"DEMO-"+Date.now(),barcode:b.barcode||"",category:b.category||"General retail",unit:b.unit||"piece",stock:Number(b.stock)||0,reorderAt:Number(b.reorderAt)||0,cost:Number(b.cost)||0,price:Number(b.price)||0,leadTimeDays:Number(b.leadTimeDays)||3,expiry:b.expiry||"",isDemo:true,createdAt:new Date().toISOString()};d.products.unshift(p);saveDemoData();return {product:copy(p)};}
+ const edit=route.match(/^\/products\/([^/]+)$/);if(edit&&method==="PUT"){const p=d.products.find(x=>x.id===decodeURIComponent(edit[1]));if(!p)fail("Product not found.",404);const name=String(b.name||"").trim(),sku=String(b.sku||"").trim(),stock=Number(b.stock),reorderAt=Number(b.reorderAt),cost=Number(b.cost),price=Number(b.price),leadTimeDays=Number(b.leadTimeDays);if(!name||!sku)fail("Product name and SKU are required.",400);if(![stock,reorderAt,cost,price,leadTimeDays].every(Number.isFinite)||[stock,reorderAt,cost,price].some(v=>v<0))fail("Product details are invalid.",400);if(d.products.some(x=>x.id!==p.id&&String(x.sku).toLowerCase()===sku.toLowerCase()))fail("That SKU already exists in this shop.",409);Object.assign(p,{name,sku,barcode:String(b.barcode||""),category:b.category||"General retail",unit:b.unit||"piece",stock,reorderAt,cost,price,leadTimeDays,expiry:b.expiry||""});saveDemoData();return {product:copy(p)};}
+ const adjust=route.match(/^\/products\/([^/]+)\/stock-adjustments$/);if(adjust&&method==="POST"){const p=d.products.find(x=>x.id===decodeURIComponent(adjust[1])),delta=Number(b.delta);if(!p||!delta||p.stock+delta<0)fail("Stock adjustment is invalid.",409);p.stock+=delta;saveDemoData();return {product:copy(p)};}
+ if(route==="/sales"&&method==="GET")return {sales:copy(d.sales)};
+ if(route==="/sales"&&method==="POST"){const p=d.products.find(x=>x.id===b.productId),qty=Number(b.quantity);if(!p)fail("Product not found.",404);if(qty<=0||qty>p.stock)fail("Not enough stock available.",409);p.stock-=qty;const total=p.price*qty,name=String(b.customerName||"").trim();let c=null,coins=0;if(name){c=d.customers.find(x=>x.name.toLowerCase()===name.toLowerCase());if(!c){c={id:"demo-c"+Date.now(),name,phone:"",coins:0,spend:0,orders:0};d.customers.unshift(c);}coins=Math.floor(total/d.settings.coinThreshold);c.coins+=coins;c.spend+=total;c.orders++;}const sale={id:"demo-sale"+Date.now(),productId:p.id,item:p.name,customer:c?.name||"Walk-in customer",quantity:qty,amount:total,coinsEarned:coins,status:"Recorded",time:new Date().toISOString(),createdAt:new Date().toISOString()};d.sales.unshift(sale);saveDemoData();return {sale:copy(sale),coinsEarned:coins};}
+ if(route==="/customers")return {customers:copy(d.customers)};if(route==="/suppliers"&&method==="GET")return {suppliers:copy(d.suppliers)};
+ if(route==="/suppliers"&&method==="POST"){const s={id:"demo-s"+Date.now(),...b,active:true};d.suppliers.push(s);saveDemoData();return {supplier:copy(s)};}
+ if(route==="/purchase-orders"&&method==="GET")return {purchaseOrders:copy(d.purchaseOrders)};if(route==="/purchase-orders"&&method==="POST"){const items=demoPlan().items,po={id:"demo-po"+Date.now(),status:"draft",supplierName:d.suppliers.find(x=>x.id===b.supplierId)?.name||"Not assigned",totalCost:demoPlan().estimatedTotal,itemCount:items.length,createdAt:new Date().toISOString(),items:copy(items)};d.purchaseOrders.unshift(po);saveDemoData();return {purchaseOrder:copy(po)};}
+ const receive=route.match(/^\/purchase-orders\/([^/]+)\/receive$/);if(receive&&method==="POST"){const po=d.purchaseOrders.find(x=>x.id===decodeURIComponent(receive[1]));if(!po)fail("Purchase order not found.",404);po.status="received";saveDemoData();return {ok:true,status:"received"};}
+ if(route==="/recycle-bin"&&method==="GET")return {items:copy(d.recycleBin)};const restore=route.match(/^\/recycle-bin\/([^/]+)\/restore$/);if(restore&&method==="POST"){const i=d.recycleBin.findIndex(x=>x.id===decodeURIComponent(restore[1]));if(i<0)fail("Recycle-bin record not found.",404);const x=d.recycleBin.splice(i,1)[0];d.products.unshift({id:x.productId,...x.product,stock:x.stockAtExpiry,expiry:b.expiryDate,isDemo:true});saveDemoData();return {ok:true};}
+ const del=route.match(/^\/recycle-bin\/([^/]+)$/);if(del&&method==="DELETE"){d.recycleBin=d.recycleBin.filter(x=>x.id!==decodeURIComponent(del[1]));saveDemoData();return {ok:true};}
+ if(route==="/notifications"&&method==="GET")return {notifications:copy(d.notifications)};if(route==="/notifications"&&method==="DELETE"){d.notifications.forEach(n=>n.isRead=true);saveDemoData();return {ok:true};}
+ const mark=route.match(/^\/notifications\/([^/]+)\/read$/);if(mark&&method==="POST"){const n=d.notifications.find(x=>x.id===decodeURIComponent(mark[1]));if(n)n.isRead=true;saveDemoData();return {ok:true};}
+ if(route==="/settings"&&method==="GET")return {settings:copy(d.settings)};if(route==="/settings"&&method==="PUT"){Object.assign(d.settings,b);saveDemoData();return {settings:copy(d.settings)};}
+ if(route==="/reports/expiry-waste"){const from=q.get("from")||demoDay(-365),to=q.get("to")||demoDay(0),rows=d.recycleBin.filter(x=>x.expiry>=from&&x.expiry<=to),groups={};for(const x of rows){const month=x.expiry.slice(0,7);if(!groups[month])groups[month]={month,records:0,quantity:0,estimatedLoss:0};groups[month].records++;groups[month].quantity+=x.stockAtExpiry;groups[month].estimatedLoss+=x.stockAtExpiry*(x.product.cost||0);}const monthly=Object.values(groups);return {from,to,summary:{expiredRecords:rows.length,recordsWithStock:rows.filter(x=>x.stockAtExpiry>0).length,quantity:rows.reduce((a,x)=>a+x.stockAtExpiry,0),estimatedLoss:monthly.reduce((a,x)=>a+x.estimatedLoss,0)},monthly,products:rows.map(x=>({productId:x.productId,name:x.product.name,category:x.product.category,records:1,quantity:x.stockAtExpiry,estimatedLoss:x.stockAtExpiry*(x.product.cost||0)}))};}
+ const catalog=route.match(/^\/customer\/catalog\/([^/]+)$/);if(catalog)return {shop:{name:d.user.shopName,slug:"demo"},products:copy(d.products.map(p=>({id:p.id,name:p.name,sku:p.sku,category:p.category,unit:p.unit,price:p.price,available:p.stock>0})))};
+ if(route==="/customer/orders"&&method==="POST"){const items=(b.items||[]).map(i=>{const p=d.products.find(x=>x.id===i.productId);return p?{productId:p.id,name:p.name,sku:p.sku,unit:p.unit,quantity:Number(i.quantity),unitPrice:p.price,lineTotal:p.price*Number(i.quantity)}:null;}).filter(Boolean);if(!items.length)fail("Add at least one product to the basket.",400);const order={id:"DEMO-ORD-"+Date.now(),name:b.name,phone:b.phone,notes:b.notes||"",items,total:items.reduce((a,x)=>a+x.lineTotal,0),status:"requested",createdAt:new Date().toISOString()};d.customerOrders.unshift(order);saveDemoData();return {order:copy({...order,shopName:d.user.shopName})};}
+ const removeDemo=route.match(/^\/products\/([^/]+)\/demo$/);if(removeDemo&&method==="DELETE"){const i=d.products.findIndex(x=>x.id===decodeURIComponent(removeDemo[1])&&x.qrImported);if(i<0)fail("QR sample not found.",404);const removed=d.products.splice(i,1)[0];saveDemoData();return {ok:true,name:removed.name};}
+ if(route==="/customer-orders")return {orders:copy(d.customerOrders)};const orderStatus=route.match(/^\/customer-orders\/([^/]+)\/status$/);if(orderStatus&&method==="PUT"){const x=d.customerOrders.find(o=>o.id===decodeURIComponent(orderStatus[1]));if(!x)fail("Order not found.",404);x.status=b.status;saveDemoData();return {ok:true,status:x.status};}
+ fail("This action is not available in Demo Mode.",404);
+}
+
+async function api(path,options){
+ const opts=Object.assign({},options||{});if(demoMode&&!path.startsWith("/demo-product-qr"))return demoApi(path,opts);
+ if(nativeBridge){
+  await ensureNativeConfig();
+  const body=opts.body===undefined?undefined:JSON.stringify(opts.body);
+  const result=await nativeBridge.request({method:(opts.method||"GET").toUpperCase(),path:"/api"+path,body,contentType:"application/json"});
+  let data={};try{data=JSON.parse(result.body||"{}");}catch(_){}
+  if(result.status<200||result.status>=300){const err=new Error(data.error||"Request failed ("+result.status+").");err.status=result.status;err.data=data;throw err;}
+  return data;
+ }
+ const headers=Object.assign({},opts.headers||{});if(opts.body!==undefined){headers["Content-Type"]="application/json";opts.body=JSON.stringify(opts.body);}
+ const response=await fetch("/api"+path,Object.assign({},opts,{headers,credentials:"same-origin"}));let data={};try{data=await response.json();}catch(_){}
+ if(!response.ok){const err=new Error(data.error||"Request failed ("+response.status+").");err.status=response.status;err.data=data;throw err;}return data;
+}
+function toast(message){const root=$("toastRoot");if(!root)return;root.innerHTML='<div class="toast">'+safe(message)+'</div>';clearTimeout(toastTimer);toastTimer=setTimeout(()=>root.innerHTML="",4200);}
+function showAuth(mode,message){
+ authMode=mode||"login";document.body.classList.add("auth-mode");
+ const isRegister=authMode==="register";
+ $("authRoot").innerHTML='<div class="auth-shell"><section class="auth-brand-pane"><div class="auth-brand"><span class="brand-mark">e</span><span>easy<span>gateway</span></span></div><div class="auth-pitch"><div class="eyebrow">RETAIL OPERATIONS, SIMPLIFIED</div><h1>Run your shop with clarity.</h1><p>Keep stock, sales, customer rewards and purchasing in one place. Your business records are saved to your shop account.</p><div class="auth-bullets"><div class="auth-bullet"><span class="auth-check">✓</span>Inventory and expiry controls</div><div class="auth-bullet"><span class="auth-check">✓</span>Daily sales and purchase planning</div><div class="auth-bullet"><span class="auth-check">✓</span>Customer loyalty coins</div></div></div><div class="auth-brand-foot">Easy Gateway · Retail management workspace</div></section><section class="auth-form-pane"><h2>'+(isRegister?"Create your shop account":"Welcome back")+'</h2><p class="sub">'+(isRegister?"Set up your retailer workspace. It will start with an empty catalogue so your records are your own.":"Sign in to open your shop dashboard and manage its records.")+'</p><div id="authError" class="auth-error '+(message?"show":"")+'">'+safe(message||"")+'</div><form id="authForm" class="auth-form">'+(isRegister?'<label class="auth-field">Your name<input name="fullName" required minlength="2" maxlength="100" autocomplete="name" placeholder="Full name"></label><label class="auth-field">Shop name<input name="shopName" required minlength="2" maxlength="120" autocomplete="organization" placeholder="Your shop name"></label>':"")+'<label class="auth-field">Email address<input name="email" type="email" required maxlength="254" autocomplete="email" placeholder="you@example.com"></label><label class="auth-field">Password<input name="password" type="password" required minlength="'+(isRegister?"10":"1")+'" maxlength="128" autocomplete="'+(isRegister?"new-password":"current-password")+'" placeholder="'+(isRegister?"At least 10 characters":"Your password")+'"></label><button class="btn btn-primary auth-submit" id="authSubmit" type="submit">'+(isRegister?"Create account":"Sign in securely")+'</button></form><div style="margin-top:10px"><button type="button" class="btn btn-secondary" style="width:100%" data-action="toggle-demo">Explore in Demo Mode</button></div><div class="auth-switch">'+(isRegister?'Already have an account? <button type="button" data-action="auth-login">Sign in</button>':'New to Easy Gateway? <button type="button" data-action="auth-register">Create a shop account</button>')+'</div><div class="auth-small">Your account uses a server-side session, and your shop data is stored in PostgreSQL. Use a unique password. This project is still an MVP and should be security-reviewed before handling sensitive business data.</div></section></div>';
+}
+function hideAuth(){document.body.classList.remove("auth-mode");$("authRoot").innerHTML="";}
+function markNav(){document.querySelectorAll(".nav-item[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===page));const title=({dashboard:"Store overview",inventory:"Inventory",expiry:"Expiry & recycle bin",waste:"Expiry waste report",qr:"Product QR generator",orders:"Customer order requests",sales:"Sales & trends",purchasing:"Purchase planner",suppliers:"Suppliers",customers:"Customers",loyalty:"Loyalty coins",automations:"Automations",settings:"Shop settings"})[page]||"Store overview";$("crumbTitle").textContent=title;if($("lowCount"))$("lowCount").textContent=state.dashboard.lowStockCount||0;if($("expiryCount"))$("expiryCount").textContent=state.recycleBin.length||0;const store=document.querySelector(".store strong");if(store)store.textContent=state.user.shopName;const storeSmall=document.querySelector(".store small");if(storeSmall)storeSmall.textContent="Connected · "+state.user.email;const profile=document.querySelector(".profile strong");if(profile)profile.textContent=state.user.name;const profileSmall=document.querySelector(".profile small");if(profileSmall)profileSmall.textContent=state.user.role+" account";document.querySelectorAll(".mobile-tabbar [data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===page));}
+async function loadData(){
+ const boot=await api("/bootstrap");
+ state.user=boot.user;state.settings=boot.settings;state.products=boot.products;state.sales=boot.sales;state.customers=boot.customers;state.suppliers=boot.suppliers;state.recycleBin=boot.recycleBin;state.notifications=boot.notifications;state.purchaseOrders=boot.purchaseOrders;state.dashboard=boot.dashboard;
+ try{state.purchasePlan=await api("/purchase-plan");}catch(_){state.purchasePlan={items:[],estimatedTotal:0};}
+ try{state.customerOrders=(await api("/customer-orders")).orders||[];}catch(_){state.customerOrders=[];}
+ state.notifications.forEach(n=>knownNotifications.add(n.id));
+ hideAuth();render();
+}
+function updateModeChrome(){const b=$("demoModeToggle");if(b){b.textContent=demoMode?"Demo Mode · ON":"Demo Mode";b.setAttribute("aria-pressed",demoMode?"true":"false");b.classList.toggle("mode-on",demoMode);}document.body.classList.toggle("demo-mode",demoMode);}
+function updateModeUrl(){
+ const u=new URL(window.location.href);
+ if(demoMode)u.searchParams.set("mode","demo");else u.searchParams.delete("mode");
+ u.searchParams.delete("page");u.searchParams.delete("generateQr");u.searchParams.delete("scanToken");
+ history.replaceState(null,"",u.pathname+u.search+u.hash);
+}
+function openQrTab(){
+ if(isNativeApp){if(page!=="qr")state.previousPage=page;page="qr";query="";state.qr=state.qr||null;render();return;}
+ const u=new URL("/",window.location.origin);u.searchParams.set("page","qr");u.searchParams.set("generateQr","1");
+ if(demoMode)u.searchParams.set("mode","demo");
+ const tab=window.open(u.toString(),"_blank");if(tab)tab.opener=null;else toast("Your browser blocked the QR tab. Allow pop-ups for Easy Gateway and try again.");
+}
+function activeStoreSlug(){return customerView&&customerStoreSlug?customerStoreSlug:demoMode?"demo":(state.user&&state.user.publicSlug)||"";}
+function setNavOpen(open){
+ document.body.classList.toggle("nav-open",!!open);
+ const button=document.querySelector(".mobile-menu");
+ if(button)button.setAttribute("aria-expanded",open?"true":"false");
+}
+function goToPage(next){
+ if(!next||next===page)return;
+ state.previousPage=page;
+ page=next;query="";
+ if(page==="waste"){state.expiryWasteReport=null;state.expiryWasteError="";}
+ render();
+ if(page==="waste")loadExpiryWasteReport();
+}
+function goBackPage(){
+ if(customerView){exitCustomerStore();return;}
+ const next=state.previousPage&&state.previousPage!==page?state.previousPage:"dashboard";
+ state.previousPage=page;
+ page=next;query="";render();
+}
+function customerStoreUrl(slug){return new URL("/shop/"+encodeURIComponent(slug),isNativeApp?nativeApiOrigin():window.location.origin).toString();}
+async function enterCustomerStore(slug){
+ if(!slug){toast("The customer store link is not available yet.");return;}
+ customerView=true;customerStoreSlug=slug;customerCart=[];customerLastOrder=null;customerSearch="";customerCatalog=null;
+ document.body.classList.remove("nav-open");
+ await startCustomerStore();
+}
+function exitCustomerStore(){
+ customerView=false;customerStoreSlug="";customerCart=[];customerLastOrder=null;customerCatalog=null;
+ document.body.classList.remove("customer-mode");
+ const root=$("customerPortalRoot");if(root){root.hidden=true;root.innerHTML="";}
+ if(state.user){page="dashboard";render();}else showAuth("login","");
+}
+async function openCustomerTab(){
+ const slug=demoMode?"demo":state.user?.publicSlug;if(!slug){toast("The customer store link is not available yet.");return;}
+ if(isNativeApp){await enterCustomerStore(slug);return;}
+ const u=new URL("/shop/"+encodeURIComponent(slug),window.location.origin);if(demoMode)u.searchParams.set("mode","demo");
+ const tab=window.open(u.toString(),"_blank");if(tab)tab.opener=null;else toast("Your browser blocked the customer store tab. Allow pop-ups for Easy Gateway and try again.");
+}
+async function consumePendingScanToken(){
+ const token=pendingScanToken();
+ if(!token)return false;
+ const tokenDemoOnly=pendingScanDemoOnly();
+ if(tokenDemoOnly===true&&!demoMode){
+  setPendingScanToken("");
+  toast("This is a Demo Mode QR. Turn Demo Mode on to import it; your live inventory was not changed.");
+  return false;
+ }
+ if(tokenDemoOnly===false&&demoMode){
+  setPendingScanToken("");
+  toast("This is a live import QR. Demo Mode is on, so nothing was changed. Turn Demo Mode off and sign in to import it.");
+  return false;
+ }
+ const route=window.EGCore.importEndpoint(demoMode);
+ try{
+  if(demoMode){
+   const result=await api(route.path,{method:"POST",body:{token}}),d=loadDemoData(),p=result.product;
+   let sku=String(p.sku||"DEMO-IMPORT").slice(0,90);
+   if(d.products.some(x=>String(x.sku).toLowerCase()===sku.toLowerCase()))sku=sku+"-"+Date.now().toString(36).toUpperCase();
+   const imported={id:"demo-qr-"+Date.now(),name:p.name,sku,category:p.category,unit:p.unit,stock:Number(p.stock)||0,reorderAt:Number(p.reorderAt)||0,cost:Number(p.cost)||0,price:Number(p.price)||0,leadTimeDays:Number(p.leadTimeDays)||3,expiry:p.expiry||"",isDemo:true,qrImported:true,createdAt:new Date().toISOString()};
+   d.products.unshift(imported);saveDemoData();setPendingScanToken("");page="inventory";query="";await loadData();
+   toast("Added "+imported.name+" to Demo Mode only. Your real shop data was not changed.");return true;
+  }
+  const result=await api(route.path,{method:"POST",body:{token}});
+  setPendingScanToken("");page="inventory";query="";await loadData();
+  toast("Added "+result.product.name+" to "+(result.shopName||"your shop")+" inventory. It is marked as a removable QR sample.");return true;
+ }catch(err){
+  if(err.status===401){showAuth("login","Sign in to import the scanned product. It will be added automatically after you sign in.");return false;}
+  setPendingScanToken("");
+  toast(window.EGCore.importErrorMessage(demoMode,err.status,err.message,tokenDemoOnly)||"This sample QR could not be imported.");return false;
+ }
+}
+async function toggleDemoMode(){
+ demoMode=!demoMode;updateModeUrl();updateModeChrome();state.qr=null;page="dashboard";query="";
+ if(demoMode){loadDemoData();await loadData();toast("Demo Mode on. Sample products, customers and sales are isolated from your live shop.");await consumePendingScanToken();return;}
+ try{await api("/auth/me");await loadData();toast("Demo Mode off. Your live shop data is active.");await consumePendingScanToken();}
+ catch(err){showAuth("login","Demo Mode is off. Sign in to return to your real shop.");}
+}
+async function start(){
+ updateModeChrome();
+ initNativeBackButton();
+ await initNativeDeepLinks();
+ if(customerView){await startCustomerStore();return;}
+ try{
+  if(demoMode){await loadData();await consumePendingScanToken();}
+  else{await api("/auth/me");await loadData();await consumePendingScanToken();}
+  if(page==="waste"&&!state.expiryWasteReport)loadExpiryWasteReport();
+  if(page==="qr"&&launchGenerateQr)await generateSampleProductQr(false);
+ }catch(err){
+  if(err.status===401){showAuth("login",pendingScanToken()?"Sign in to import the scanned product. It will be added after sign-in.":"");}
+  else showAuth("login",err.message||"Could not connect to Easy Gateway.");
+ }
+}
+function badge(label,type){return '<span class="badge '+(type||"")+'">'+safe(label)+'</span>';}
+function tableEmpty(columns,message){return '<tr><td colspan="'+columns+'" class="empty">'+safe(message)+'</td></tr>';}
+function decorateTables(scope){
+ (scope||document).querySelectorAll("table").forEach(table=>{
+  const headers=Array.from(table.querySelectorAll("thead th")).map(th=>th.textContent.trim());
+  table.classList.add("mobile-cards");
+  table.querySelectorAll("tbody tr").forEach(row=>{
+   Array.from(row.children).forEach((cell,index)=>{
+    if(cell.tagName!=="TD")return;
+    if(cell.hasAttribute("colspan"))return;
+    if(headers[index])cell.setAttribute("data-label",headers[index]);
+   });
+  });
+ });
+}
+async function saveCsvFile(filename,csv,successMessage){
+ if(nativeBridge){
+  const result=await nativeBridge.saveCsv({filename,content:csv,mimeType:"text/csv"});
+  toast((successMessage||"CSV saved")+" Saved to "+result.path+". Choose where to share it.");
+  return;
+ }
+ const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8;"})),a=document.createElement("a");a.href=url;a.download=filename;a.click();URL.revokeObjectURL(url);toast(successMessage||"CSV exported.");
+}
+async function scanQrCode(){
+ if(!nativeBarcode){toast("Camera scanning is available in the Android app. Use the QR generator to display a sample.");return;}
+ try{
+  const result=await nativeBarcode.scanBarcode({hint:17,scanInstructions:"Point the camera at a product barcode or an Easy Gateway QR.",scanButton:false,scanText:"Scan code",cameraDirection:1,scanOrientation:1,android:{scanningLibrary:"zxing"}});
+  const value=result&&(result.ScanResult||result.scanResult||"");
+  if(!value){toast("No barcode or QR code was detected.");return;}
+  await handleScannedValue(value);
+ }catch(err){
+  const message=String(err&&(err.message||err.errorMessage)||"");
+  if(/cancel/i.test(message))return;
+  toast(message||"The QR scanner could not start.");
+ }
+}
+async function shareStoreLink(){
+ const slug=activeStoreSlug();
+ if(!slug){toast("The customer store link is not available yet.");return;}
+ const url=customerStoreUrl(slug);
+ try{
+  if(nativeShare)await nativeShare.share({title:"Shop at "+((state.user&&state.user.shopName)||"Easy Gateway"),text:"Browse the catalogue and send an order request.",url,dialogTitle:"Share customer store"});
+  else if(navigator.share)await navigator.share({title:"Easy Gateway customer store",url});
+  else if(navigator.clipboard){await navigator.clipboard.writeText(url);toast("Customer store link copied.");}
+  else toast("Store link: "+url);
+ }catch(err){if(!/cancel/i.test(String(err&&err.message||"")))toast("Could not share the customer store link.");}
+}
+async function saveQrImage(){
+ const qr=state.qr;
+ if(!qr||!qr.qrDataUrl){toast("Generate a sample QR first.");return;}
+ if(nativeBridge){
+  try{const result=await nativeBridge.savePng({data:qr.qrDataUrl,filename:"easy-gateway-sample-product.png"});toast("QR image saved to "+result.path+". Pick an app to share it.");}
+  catch(err){toast(err.message||"Could not save the QR image.");}
+  return;
+ }
+ const a=document.createElement("a");a.href=qr.qrDataUrl;a.download="easy-gateway-sample-product.png";a.click();toast("QR image downloaded.");
+}
+async function testConnection(){
+ try{if(nativeBridge)await ensureNativeConfig();}catch(_){}
+ const target=nativeConfig?nativeConfig.apiBaseUrl:"this website";
+ state.connectionState="Checking "+target+"…";
+ if(page==="settings")render();
+ try{
+  let result;
+  if(nativeBridge){await ensureNativeConfig();result=await nativeBridge.request({method:"GET",path:"/healthz"});}
+  else{const response=await fetch("/healthz",{headers:{Accept:"application/json"}});result={status:response.status,body:await response.text()};}
+  let data={};try{data=JSON.parse(result.body||"{}");}catch(_){}
+  if(result.status===200&&data.ok){state.connectionState="Connected to "+target+" ("+(data.database==="connected"?"database connected":"service reachable")+").";toast("Easy Gateway backend is reachable.");}
+  else{state.connectionState="The backend replied with HTTP "+result.status+". Data changes may fail.";toast("Backend check failed (HTTP "+result.status+").");}
+ }catch(err){state.connectionState="Connection failed: "+(err.message||"unknown error")+".";toast("Could not reach the backend.");}
+ if(page==="settings")render();
+}
+function metric(label,value,detail,symbol){return '<article class="metric"><div class="metric-top"><span>'+label+'</span><span class="metric-symbol">'+symbol+'</span></div><div class="metric-value">'+value+'</div><div class="metric-sub">'+detail+'</div></article>';}
+function chartSvg(){
+ const points=(state.dashboard.dailySales||[]).map(x=>Number(x.revenue)||0),w=660,h=175,pad=14,max=Math.max(1,...points)*1.18;
+ const xy=points.map((v,i)=>[points.length<=1?w/2:pad+i*(w-2*pad)/(points.length-1),h-pad-v/max*(h-2*pad)]);
+ const coords=xy.map(p=>p[0]+","+p[1]).join(" "),area=xy.length?pad+","+(h-pad)+" "+coords+" "+(w-pad)+","+(h-pad):"";
+ let grid="";[0,1,2,3].forEach(i=>{const y=pad+i*(h-2*pad)/3;grid+='<line x1="0" y1="'+y+'" x2="'+w+'" y2="'+y+'" stroke="#e9ede5" stroke-dasharray="3 5"/>';});
+ return '<svg class="chart" viewBox="0 0 '+w+' '+h+'" role="img" aria-label="Actual recorded daily sales">'+grid+(xy.length?'<polygon points="'+area+'" fill="#e8f1e3"/><polyline points="'+coords+'" fill="none" stroke="#477d53" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>'+xy.map((p,i)=>'<circle cx="'+p[0]+'" cy="'+p[1]+'" r="'+(i===xy.length-1?4:2.4)+'" fill="'+(i===xy.length-1?"#477d53":"#fff")+'" stroke="#477d53" stroke-width="1.5"/>').join(""):'')+'</svg>';
+}
+function chartLabels(){return '<div class="chart-labels">'+(state.dashboard.dailySales||[]).map(d=>'<span>'+safe(new Date(d.day+"T00:00:00").toLocaleDateString("en-IN",{weekday:"short"}))+'</span>').join("")+'</div>';}
+function renderDashboard(){
+ const d=state.dashboard,plan=state.purchasePlan.items||[],picks=plan.slice(0,4),salesVariance=(Number(d.revenueToday)||0)-(Number(d.revenueYesterday)||0);
+ const anomalyRows=(d.anomalies||[]).slice().reverse().map(a=>'<tr><td><strong>'+safe(dateLabel(a.day))+'</strong></td><td>All products</td><td>'+fmt(a.actual)+'<span class="subtext">Baseline '+fmt(a.expected)+'</span></td><td class="'+(a.variance>=0?"variance-up":"variance-down")+'">'+(a.variance>0?"+":"")+a.variance+'%</td><td>'+badge("Review","warn")+'</td></tr>').join("")||tableEmpty(5,"Not enough recorded history to detect sales anomalies yet.");
+ const low=state.products.filter(p=>p.stock<=p.reorderAt).slice(0,3);
+ return '<div class="metrics">'+metric("Sales today",fmt(d.revenueToday),'<span class="'+(salesVariance>=0?"positive":"warning")+'">'+(salesVariance>=0?"+":"")+fmt(salesVariance)+'</span> vs yesterday',"₹")+metric("Orders today",num(d.ordersToday),"Recorded sales transactions","▣")+metric("Products to reorder",num(d.lowStockCount),"At or below reorder level","▤")+metric("Loyalty coins",num(d.loyaltyCoins),"Earned by shop customers","◆")+'</div><div class="main-grid"><section class="panel"><div class="panel-head"><div><div class="panel-title">Sales performance</div><div class="panel-caption">Actual recorded sales · last 7 calendar days</div></div><button class="link-btn" data-page="sales">View sales →</button></div><div class="chart-summary"><div><span class="muted-label">Revenue today</span><strong>'+fmt(d.revenueToday)+'</strong></div><span class="chart-badge">PostgreSQL records</span></div>'+chartSvg()+chartLabels()+'<div class="chart-legend"><span><i class="legend-dot"></i> Actual recorded revenue</span></div><div class="panel-foot"><span>Only sales entered in Easy Gateway are shown.</span><button class="link-btn" data-action="record-sale">Record sale →</button></div></section><section class="panel"><div class="panel-head"><div><div class="panel-title">Purchase recommendations</div><div class="panel-caption">Rule-based plan using stock, sales history and lead time</div></div>'+badge(picks.length+" items","")+'</div><div class="purchase-summary"><div><small>Estimated order cost</small><strong>'+fmt(plan.reduce((a,p)=>a+p.estimatedCost,0))+'</strong></div><span class="pill-count">Review first</span></div><div class="purchase-list">'+(picks.map(p=>'<div class="purchase-row"><span class="product-initial">'+safe(p.name.charAt(0))+'</span><span class="purchase-copy"><strong>'+safe(p.name)+'</strong><small>'+num(p.stock)+' in stock · suggest '+num(p.quantity)+' '+safe(p.unit)+'</small></span><span class="risk '+(p.stock<=p.reorderAt*.65?"high":"")+'">'+(p.stock<=p.reorderAt*.65?"At risk":"Restock")+'</span></div>').join("")||'<div class="empty">Add products and record sales to generate a buying plan.</div>')+'</div><div class="panel-foot"><span>Draft orders are not sent externally.</span><button class="btn btn-primary" data-page="purchasing">Review plan →</button></div></section></div><div class="bottom-grid"><section class="panel"><div class="panel-head"><div><div class="panel-title">Unexpected sales changes</div><div class="panel-caption">Compared with the prior 2–3 non-zero days; not an AI forecast</div></div><button class="link-btn" data-page="sales">View log →</button></div><div class="table-wrap"><table><thead><tr><th>Date</th><th>Scope</th><th>Actual / baseline</th><th>Variance</th><th>Status</th></tr></thead><tbody>'+anomalyRows+'</tbody></table></div></section><section class="panel"><div class="panel-head"><div><div class="panel-title">Needs attention</div><div class="panel-caption">Live inventory checks and notifications</div></div>'+badge(String(low.length+state.notifications.filter(n=>!n.isRead).length),"warn")+'</div>'+(low.map(p=>'<div class="attention-row"><span class="attention-symbol">!</span><span class="attention-copy"><strong>'+safe(p.name)+'</strong><small>Stock '+num(p.stock)+' · reorder at '+num(p.reorderAt)+'</small></span><button class="row-action" data-page="inventory">›</button></div>').join("")||'<div class="attention-row"><span class="attention-copy"><strong>No low-stock alerts</strong><small>Products will appear here when they reach reorder level.</small></span></div>')+'<div class="attention-row"><span class="attention-symbol">♲</span><span class="attention-copy"><strong>'+state.recycleBin.length+' expired product records</strong><small>Review recycle bin and notification history.</small></span><button class="row-action" data-page="expiry">›</button></div></section></div>';
+}
+function renderInventory(){
+ const filter=state.inventoryFilter||"all";
+ const list=window.EGCore.inventoryFilter(state.products,filter,query,daysToExpiry);
+ const filters=[["all","All products"],["low","Low stock"],["expiring","Expiring in 7 days"],["qr","QR samples"]];
+ const chips=filters.map(([value,label])=>'<button type="button" class="filter-chip '+(filter===value?"active":"")+'" data-action="inventory-filter" data-filter="'+value+'" aria-pressed="'+(filter===value?"true":"false")+'">'+safe(label)+'</button>').join("");
+ const rows=list.map(p=>{const days=daysToExpiry(p.expiry);return '<tr><td><strong>'+safe(p.name)+'</strong>'+(p.qrImported?'<span class="status-badge-sample">QR SAMPLE</span>':'')+'<span class="subtext">'+safe(p.sku)+(p.barcode?' · '+safe(p.barcode):'')+' · '+safe(p.unit)+'</span></td><td>'+safe(p.category)+'</td><td><strong>'+num(p.stock)+'</strong> '+safe(p.unit)+'</td><td>'+num(p.reorderAt)+'</td><td>'+fmt(p.cost)+'</td><td>'+fmt(p.price)+'</td><td><span class="expiry-date '+(days!==null&&days<=1?"danger":"")+'">'+safe(dateLabel(p.expiry))+'</span>'+(days!==null&&days>=0&&days<=7?'<span class="subtext">'+(days===0?"Expires today":days===1?"Expires tomorrow":"In "+days+" days")+'</span>':"")+'</td><td>'+(p.stock<=p.reorderAt?badge("Low stock","warn"):badge("In stock",""))+'</td><td><div class="item-actions"><button class="btn btn-secondary" data-action="edit-product" data-id="'+safe(p.id)+'">Edit</button><button class="btn btn-secondary" data-action="adjust-stock" data-id="'+safe(p.id)+'">Adjust</button>'+(p.qrImported?'<button class="btn btn-danger" data-action="remove-demo-product" data-id="'+safe(p.id)+'">Remove sample</button>':"")+'</div></td></tr>';}).join("")||tableEmpty(9,filter==="low"?"No products are at or below their reorder level.":filter==="expiring"?"No products expire within the next 7 days.":filter==="qr"?"No QR samples have been imported. Generate one from the Product QR generator.":"No products match this search.");
+ return '<div class="section-metrics"><div class="mini"><span>Active products</span><strong>'+state.products.length+'</strong><small>Stored in '+(demoMode?"local demo sandbox":"PostgreSQL")+'</small></div><div class="mini"><span>Low stock</span><strong>'+state.dashboard.lowStockCount+'</strong><small>At or below reorder level</small></div><div class="mini"><span>Stock value at cost</span><strong>'+fmt(state.products.reduce((a,p)=>a+p.stock*p.cost,0))+'</strong><small>Based on recorded unit costs</small></div><div class="mini"><span>Expiring within 7 days</span><strong>'+state.products.filter(p=>{const d=daysToExpiry(p.expiry);return d!==null&&d>=0&&d<=7}).length+'</strong><small>Check expiry dates</small></div></div><section class="panel"><div class="toolbar"><div><h2>Product inventory</h2><p>Search products, export inventory, or add a product by form or QR scan.</p></div><div style="display:flex;gap:8px;flex-wrap:wrap"><input class="inline-search" id="inventorySearch" placeholder="Search name, SKU, category…" value="'+safe(query)+'"><button class="btn btn-secondary" data-action="export">Export CSV</button><button class="btn btn-secondary native-only" data-action="scan-qr">Scan QR</button><button class="btn btn-secondary" data-action="open-qr-tab">Add via QR ↗</button><button class="btn btn-primary" data-action="add-product">+ Add product</button></div></div><div class="inventory-filters" role="group" aria-label="Filter inventory">'+chips+'<span class="connection-state" style="margin-left:auto;align-self:center">'+list.length+' of '+state.products.length+' shown</span></div><div class="table-wrap"><table><thead><tr><th>Product</th><th>Category</th><th>Stock</th><th>Reorder at</th><th>Unit cost</th><th>Selling price</th><th>Expiry date</th><th>Status</th><th>Actions</th></tr></thead><tbody>'+rows+'</tbody></table></div><div class="footnote">QR-imported sample products are tagged and can be removed after a demonstration. Demo Mode changes stay local to this browser session.</div></section>';
+}
+function renderExpiry(){
+ const soon=state.products.filter(p=>{const d=daysToExpiry(p.expiry);return d!==null&&d>=0&&d<=7}).sort((a,b)=>daysToExpiry(a.expiry)-daysToExpiry(b.expiry));
+ const soonRows=soon.map(p=>{const d=daysToExpiry(p.expiry);return '<tr><td><strong>'+safe(p.name)+'</strong><span class="subtext">'+safe(p.sku)+'</span></td><td>'+num(p.stock)+' '+safe(p.unit)+'</td><td><strong class="expiry-date '+(d<=1?"danger":"")+'">'+safe(dateLabel(p.expiry))+'</strong><span class="subtext">'+(d===0?"Expires today":d===1?"Expires tomorrow":"Expires in "+d+" days")+'</span></td><td>'+badge("Rotate / prioritize","warn")+'</td></tr>';}).join("")||tableEmpty(4,"No products are due to expire within 7 days.");
+ const binRows=state.recycleBin.map(r=>{const p=r.product||{};return '<tr class="recycled-row"><td><strong>'+safe(p.name||"Deleted product")+'</strong><span class="subtext">'+safe(p.sku||"")+' · '+safe(r.reason)+'</span></td><td>'+num(r.stockAtExpiry)+' '+safe(p.unit||"units")+'</td><td><strong class="expiry-date danger">'+safe(dateLabel(r.expiry))+'</strong></td><td>'+safe(dateLabel(String(r.recycledAt||"").slice(0,10)))+'</td><td><button class="btn btn-secondary" data-action="restore-expired" data-id="'+safe(r.id)+'">Correct date &amp; restore</button> <button class="btn btn-danger" data-action="delete-recycled" data-id="'+safe(r.id)+'">Delete</button></td></tr>';}).join("")||tableEmpty(5,"The recycle bin is empty.");
+ const notices=state.notifications.map(n=>'<div class="notification-line '+(!n.isRead?"notification-unread":"")+'"><span class="notification-mark">'+(n.kind==="product_expired"?"!":"i")+'</span><span style="flex:1"><strong>'+safe(n.title)+'</strong><small>'+safe(n.message)+' · '+safe(new Date(n.createdAt).toLocaleString("en-IN"))+'</small></span>'+(n.isRead?"":'<button class="btn btn-secondary" data-action="mark-read" data-id="'+safe(n.id)+'">Mark read</button>')+'</div>').join("")||'<div class="empty">No notifications yet.</div>';
+ return '<div class="status-box"><strong>Server-side expiry protection is active</strong><p>The backend checks expiry dates on API requests and every minute while the service is running. Expired items are removed from active inventory, retained in the recycle bin with their remaining stock, and a notification is saved to PostgreSQL.</p></div><div class="section-metrics"><div class="mini"><span>Expiring in 7 days</span><strong>'+soon.length+'</strong><small>Prioritize selling / rotating</small></div><div class="mini"><span>Recycle bin</span><strong>'+state.recycleBin.length+'</strong><small>Expired records held</small></div><div class="mini"><span>Unread alerts</span><strong>'+state.notifications.filter(n=>!n.isRead).length+'</strong><small>Stored on server</small></div><div class="mini"><span>Active products</span><strong>'+state.products.length+'</strong><small>Expired products excluded</small></div></div><section class="panel"><div class="panel-head"><div><div class="panel-title">Expiring soon</div><div class="panel-caption">Dates recorded in product inventory.</div></div>'+badge(soon.length+" items",soon.length?"warn":"")+'</div><div class="table-wrap"><table><thead><tr><th>Product</th><th>Stock</th><th>Expiry date</th><th>Action</th></tr></thead><tbody>'+soonRows+'</tbody></table></div></section><section class="panel" style="margin-top:15px"><div class="panel-head"><div><div class="panel-title">Recycle bin</div><div class="panel-caption">Expired goods are not available for new sales. Restore only after correcting an inaccurate expiry date.</div></div>'+badge(state.recycleBin.length+" held","warn")+'</div><div class="table-wrap"><table><thead><tr><th>Product</th><th>Stock at expiry</th><th>Expiry date</th><th>Moved on</th><th>Action</th></tr></thead><tbody>'+binRows+'</tbody></table></div></section><section class="panel" style="margin-top:15px"><div class="panel-head"><div><div class="panel-title">Retailer notifications</div><div class="panel-caption">In-app alerts stored in PostgreSQL.</div></div><button class="link-btn" data-action="enable-notifications">Enable browser alerts</button><button class="link-btn" data-action="clear-notifications">Mark all read</button></div>'+notices+'</section>';
+}
+
+function defaultExpiryReportRange(){
+ const today=localDate(),d=new Date(today+"T00:00:00"),from=new Date(d.getFullYear(),d.getMonth()-11,1);
+ const iso=x=>x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0");
+ return {from:iso(from),to:today};
+}
+async function loadExpiryWasteReport(from,to){
+ const defaults=defaultExpiryReportRange();
+ state.expiryWasteFrom=from||state.expiryWasteFrom||defaults.from;
+ state.expiryWasteTo=to||state.expiryWasteTo||defaults.to;
+ state.expiryWasteLoading=true;state.expiryWasteError="";state.expiryWasteReport=null;
+ if(page==="waste")render();
+ try{
+  const result=await api("/reports/expiry-waste?from="+encodeURIComponent(state.expiryWasteFrom)+"&to="+encodeURIComponent(state.expiryWasteTo));
+  state.expiryWasteReport=result;state.expiryWasteFrom=result.from;state.expiryWasteTo=result.to;
+ }catch(err){state.expiryWasteError=err.message||"Could not load the expiry waste report.";}
+ finally{state.expiryWasteLoading=false;if(page==="waste")render();}
+}
+function renderExpiryWasteReport(){
+ const defaults=defaultExpiryReportRange(),from=state.expiryWasteFrom||defaults.from,to=state.expiryWasteTo||defaults.to,r=state.expiryWasteReport;
+ const filter='<form id="expiryWasteForm" class="report-filter"><label class="field">From date<input type="date" name="from" required value="'+safe(from)+'"></label><label class="field">To date<input type="date" name="to" required value="'+safe(to)+'"></label><button class="btn btn-primary" type="submit">Apply range</button></form>';
+ if(!r)return filter+'<div class="status-box" style="margin-top:15px"><strong>'+(state.expiryWasteLoading?"Loading saved expiry records…":"Expiry waste report")+'</strong><p>'+(state.expiryWasteError?safe(state.expiryWasteError):"This report uses saved recycle-bin snapshots. No sample loss figures are inserted.")+'</p></div>';
+ const summary=r.summary||{},monthly=r.monthly||[],products=r.products||[],maxLoss=Math.max(0,...monthly.map(m=>Number(m.estimatedLoss)||0));
+ const bars=monthly.map(m=>{const value=Number(m.estimatedLoss)||0,width=maxLoss?Math.max(value>0?2:0,Math.min(100,value/maxLoss*100)):0;return '<div class="waste-bar-row"><span>'+safe(monthLabel(m.month))+'</span><div class="waste-track" aria-label="'+safe(fmt(value))+'"><span style="width:'+width+'%"></span></div><span class="waste-value">'+fmt(value)+'</span></div>';}).join("")||'<div class="empty">No expired products were recorded in this date range.</div>';
+ const productRows=products.map(p=>'<tr><td><strong>'+safe(p.name)+'</strong><span class="subtext">'+safe(p.category)+'</span></td><td>'+num(p.records)+'</td><td>'+num(p.quantity)+'</td><td><strong>'+fmt(p.estimatedLoss)+'</strong></td></tr>').join("")||tableEmpty(4,"No historical expired-product snapshots in this date range.");
+ const monthRows=monthly.slice().reverse().map(m=>'<tr><td><strong>'+safe(monthLabel(m.month))+'</strong></td><td>'+num(m.records)+'</td><td>'+num(m.quantity)+'</td><td>'+fmt(m.estimatedLoss)+'</td></tr>').join("")||tableEmpty(4,"No monthly waste records.");
+ return filter+
+  '<div class="status-box" style="margin-top:15px"><strong>Estimated inventory cost written off</strong><p>Estimated loss is remaining quantity at expiry multiplied by the unit cost saved in that expiry snapshot. Records restored after an expiry-date correction are excluded. This is stock cost, not missed revenue or guaranteed lost profit.</p></div>'+
+  '<div class="section-metrics"><div class="mini"><span>Expiry records</span><strong>'+num(summary.expiredRecords)+'</strong><small>Saved snapshots in range</small></div><div class="mini"><span>Quantity at expiry</span><strong>'+num(summary.quantity)+'</strong><small>Across recorded product units</small></div><div class="mini"><span>Estimated cost loss</span><strong>'+fmt(summary.estimatedLoss)+'</strong><small>Historical unit-cost snapshot</small></div><div class="mini"><span>Records with stock</span><strong>'+num(summary.recordsWithStock)+'</strong><small>Quantity above zero at expiry</small></div></div>'+
+  '<div class="waste-layout"><section class="panel"><div class="panel-head"><div><div class="panel-title">Monthly loss trend</div><div class="panel-caption">Grouped by recorded expiry date · '+safe(dateLabel(from))+' – '+safe(dateLabel(to))+'</div></div>'+badge(monthly.length+" months","")+'</div><div class="waste-chart">'+bars+'</div></section><section class="panel"><div class="panel-head"><div><div class="panel-title">Highest-cost products</div><div class="panel-caption">Top 10 products by estimated expired stock cost.</div></div></div><div class="table-wrap"><table><thead><tr><th>Product</th><th>Records</th><th>Quantity</th><th>Est. loss</th></tr></thead><tbody>'+productRows+'</tbody></table></div></section></div>'+
+  '<section class="panel"><div class="panel-head"><div><div class="panel-title">Monthly breakdown</div><div class="panel-caption">Actual records, with no synthesized numbers.</div></div><button class="btn btn-secondary" data-action="export-waste">Export CSV</button></div><div class="table-wrap"><table><thead><tr><th>Month</th><th>Expiry records</th><th>Quantity</th><th>Estimated cost loss</th></tr></thead><tbody>'+monthRows+'</tbody></table></div></section>';
+}
+function monthLabel(value){const parts=String(value||"").split("-").map(Number);if(parts.length!==2||!parts[0]||!parts[1])return String(value||"");return new Date(parts[0],parts[1]-1,1).toLocaleDateString("en-IN",{month:"short",year:"numeric"});}
+async function exportExpiryWasteCsv(){
+ if(!state.expiryWasteReport){toast("Load a waste report first.");return;}
+ const r=state.expiryWasteReport,rows=[["Month","Expiry records","Quantity","Estimated cost loss"],...(r.monthly||[]).map(m=>[m.month,m.records,m.quantity,m.estimatedLoss])];
+ await saveCsvFile("easy-gateway-expiry-waste.csv",window.EGCore.csv(rows),"Expiry waste report exported.");
+}
+function renderQrGenerator(){
+ const qr=state.qr,p=qr?.product||null;
+ const back='<div class="qr-topbar"><button type="button" class="screen-back" data-action="page-back">← Back</button><button type="button" class="btn btn-secondary native-only" data-action="scan-qr">Scan with camera</button></div>';
+ const details=p?'<div class="qr-detail-grid"><div><small>Sample SKU</small><strong>'+safe(p.sku)+'</strong></div><div><small>Category</small><strong>'+safe(p.category)+'</strong></div><div><small>Stock</small><strong>'+num(p.stock)+' '+safe(p.unit)+'</strong></div><div><small>Unit cost</small><strong>'+fmt(p.cost)+'</strong></div><div><small>Selling price</small><strong>'+fmt(p.price)+'</strong></div><div><small>Expiry date</small><strong>'+safe(dateLabel(p.expiry))+'</strong></div></div>':'';
+ return back+'<div class="status-box"><strong>Scan to add a randomly generated sample product</strong><p>Generate a QR, then scan it with your phone camera. In Live Mode the product is added to this signed-in shop and tagged as a removable QR sample. In Demo Mode it goes only into temporary demo data and never touches the real database.</p></div><div class="qr-layout"><section class="panel"><div class="panel-head"><div><div class="panel-title">Random product generator</div><div class="panel-caption">Sample details are generated on the server for this QR.</div></div></div><div class="panel-body"><button class="btn btn-primary" data-action="generate-qr">'+(qr?"Generate another random product":"Generate random product QR")+'</button><p class="qr-note" style="text-align:left;margin-top:16px">The QR expires after 15 minutes or one successful scan. Live imports require the scanner browser to be signed in, or to sign in after scanning.</p><p class="qr-note" style="text-align:left">Each sample has a synthetic name, SKU, stock, cost, price, lead time and optional expiry. Verify values before using them as real stock.</p><div class="scan-actions"><button type="button" class="btn btn-secondary native-only" data-action="scan-qr">Scan code with camera</button><button type="button" class="btn btn-secondary" data-action="customer-share">Share customer store</button></div></div></section><section class="panel qr-preview"><div class="panel-title">Current sample QR</div>'+(qr?'<img class="qr-image" src="'+safe(qr.qrDataUrl)+'" alt="Random sample product import QR"><div class="qr-product">'+safe(p.name)+'</div>'+details+'<div class="qr-note" style="margin-top:12px">'+(demoMode?"Sandbox-only import.":"This scan adds a tagged sample to your live shop inventory.")+'</div><div class="qr-note">Expires '+safe(new Date(qr.expiresAt).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"}))+'</div><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:13px"><button type="button" class="btn btn-secondary" data-action="save-qr">Save / share QR image</button><button type="button" class="btn btn-secondary" data-action="generate-qr">Generate another</button></div>':'<div class="qr-empty">Press Generate to create a random sample for mobile scanning.</div>')+'</section></div>';
+}
+async function generateSampleProductQr(notifyUser){
+ if(qrIssueInFlight)return;qrIssueInFlight=true;
+ try{const result=await api("/demo-product-qr",{method:"POST",body:{demoMode}});state.qr={token:result.token,product:result.product,productName:result.product?.name||"Sample product",qrDataUrl:result.qrDataUrl,scanUrl:result.scanUrl,expiresAt:result.expiresAt,demoMode:!!result.demoMode};if(page==="qr")render();if(notifyUser)toast("New sample product QR generated.");}
+ catch(err){state.qr=null;if(page==="qr")render();toast(err.message||"Could not generate a sample QR.");}
+ finally{qrIssueInFlight=false;}
+}
+async function pollQrTokenStatus(){
+ if(page!=="qr"||!state.user||!state.qr?.token||qrIssueInFlight||qrStatusCheckInFlight)return;qrStatusCheckInFlight=true;
+ try{const token=state.qr.token,result=await api("/demo-product-qr/"+encodeURIComponent(token)+"/status");if(!state.qr||state.qr.token!==token)return;if(result.consumed||result.expired)await generateSampleProductQr(false);}
+ catch(err){if(err.status===401){state.user=null;showAuth("login","Your session expired. Please sign in again.");}}
+ finally{qrStatusCheckInFlight=false;}
+}
+function renderCustomerPortal(){
+ const root=$("customerPortalRoot"),shop=customerCatalog?.shop||{name:"Local Shop"},products=(customerCatalog?.products||[]).filter(p=>(p.name+" "+p.sku+" "+p.category).toLowerCase().includes(customerSearch.toLowerCase()));
+ const getProduct=id=>customerCatalog?.products?.find(p=>p.id===id),total=customerCart.reduce((sum,item)=>sum+(Number(getProduct(item.productId)?.price)||0)*item.quantity,0);
+ const cards=products.map(p=>'<article class="customer-product"><div class="category">'+safe(p.category)+'</div><h3>'+safe(p.name)+'</h3><div class="sku">'+safe(p.sku)+' · '+safe(p.unit)+'</div><div class="price">'+fmt(p.price)+'</div><button class="btn btn-primary" data-customer-add="'+safe(p.id)+'" '+(p.available?"":"disabled")+'>'+(p.available?"Add to basket":"Currently unavailable")+'</button></article>').join("")||'<div class="empty">No products match your search.</div>';
+ const cartRows=customerCart.map(item=>{const p=getProduct(item.productId);if(!p)return "";return '<div class="customer-cart-row"><span style="flex:1;min-width:0"><strong>'+safe(p.name)+'</strong><small>'+num(item.quantity)+' × '+fmt(p.price)+'</small></span><strong>'+fmt(p.price*item.quantity)+'</strong><button type="button" aria-label="Remove one '+safe(p.name)+'" data-customer-remove="'+safe(p.id)+'">−</button></div>';}).join("")||'<div class="empty">Your basket is empty.</div>';
+ const success=customerLastOrder?'<div class="customer-notice"><strong>Request sent.</strong> Order '+safe(String(customerLastOrder.id).slice(0,12))+' for '+fmt(customerLastOrder.total)+' has been sent to '+safe(customerLastOrder.shopName||shop.name)+'. This is a request, not a paid order.</div>':"";
+ root.innerHTML='<div class="customer-shell"><header class="customer-top"><span class="customer-logo">e</span><div><div class="customer-brand">easygateway</div><div class="customer-subbrand">Customer store · '+safe(shop.name)+'</div></div><span style="flex:1"></span><button type="button" class="screen-back" data-action="customer-exit" style="margin:0">← Back</button><button type="button" class="btn btn-secondary" data-action="customer-share">Share store</button><span class="badge neutral">No payment collected</span></header>'+success+'<section class="customer-hero"><div class="eyebrow">LOCAL SHOPPING</div><h1>Shop '+safe(shop.name)+'</h1><p>Browse the catalogue, add items to your basket, and send the shop an order request. The retailer reviews availability and confirms with you.</p></section><div class="customer-layout"><section class="customer-panel"><div class="customer-panel-head"><div><h2>Available products</h2><p>Prices and availability from the shop catalogue.</p></div><span class="badge">'+products.length+' items</span></div><input id="customerSearch" class="customer-search" placeholder="Search products…" value="'+safe(customerSearch)+'"><div class="customer-grid">'+cards+'</div></section><aside class="customer-panel"><div class="customer-basket"><h2>Your basket</h2>'+cartRows+'<div class="customer-total"><span>Estimated total</span><span>'+fmt(total)+'</span></div><form id="customerCheckoutForm" class="customer-form"><label>Your name<input name="name" required minlength="2" maxlength="100" autocomplete="name"></label><label>Phone number<input name="phone" required inputmode="tel" maxlength="24" placeholder="+91 98765 43210" autocomplete="tel"></label><label>Order notes (optional)<textarea name="notes" maxlength="500" placeholder="Preferred time, delivery instructions…"></textarea></label><button class="btn btn-primary" id="customerCheckoutButton" type="submit" '+(customerCart.length&&!storeCheckoutBusy?"":"disabled")+'>'+(storeCheckoutBusy?"Sending…":"Send order request")+'</button></form><div class="qr-note" style="margin-top:12px">Your phone number is shared with this shop for this request. No payment is collected.</div></div></aside></div><footer class="customer-footer">Easy Gateway · Customer interface · '+(demoMode?"Demo Mode sandbox":"Public shop catalogue")+'</footer></div>';
+ decorateTables(root);
+}
+async function startCustomerStore(){
+ const root=$("customerPortalRoot");document.body.classList.add("customer-mode");root.hidden=false;root.innerHTML='<div class="customer-shell"><div class="customer-panel" style="padding:24px">Loading shop catalogue…</div></div>';
+ try{customerCatalog=await api("/customer/catalog/"+encodeURIComponent(customerStoreSlug));renderCustomerPortal();}
+ catch(err){root.innerHTML='<div class="customer-shell"><button type="button" class="screen-back" data-action="customer-exit">← Back</button><section class="customer-panel" style="padding:24px"><h1>Store unavailable</h1><p>'+safe(err.message||"This customer store could not be loaded.")+'</p><p class="qr-note">Check the shop link, or ask the retailer to confirm the customer store is published.</p></section></div>';}
+}
+function renderCustomerOrders(){
+ const rows=(state.customerOrders||[]).map(o=>'<tr><td><strong>'+safe(String(o.id).slice(0,12))+'</strong><span class="subtext">'+safe(new Date(o.createdAt).toLocaleString("en-IN"))+'</span></td><td><strong>'+safe(o.name)+'</strong><span class="subtext">'+safe(o.phone)+'</span></td><td>'+safe((o.items||[]).map(x=>x.name+" × "+x.quantity).join(", "))+'<span class="subtext">'+safe(o.notes||"")+'</span></td><td>'+fmt(o.total)+'</td><td>'+badge(o.status,o.status==="requested"?"warn":"")+'</td><td>'+(o.status==="requested"?'<div class="item-actions"><button class="btn btn-primary" data-action="customer-order-status" data-id="'+safe(o.id)+'" data-status="accepted">Accept</button><button class="btn btn-danger" data-action="customer-order-status" data-id="'+safe(o.id)+'" data-status="declined">Decline</button></div>':"—")+'</td></tr>').join("")||tableEmpty(6,"Customer order requests will appear here.");
+ return '<div class="status-box"><strong>Customer-facing order requests</strong><p>Customers browse your public catalogue and submit a request. No payment is taken and stock is not reserved; confirm availability before fulfilling.</p></div><section class="panel"><div class="panel-head"><div><div class="panel-title">Incoming customer requests</div><div class="panel-caption">Latest requests for this shop.</div></div><button class="btn btn-secondary" data-action="refresh">Refresh</button></div><div class="table-wrap"><table><thead><tr><th>Request</th><th>Customer</th><th>Items / notes</th><th>Estimated total</th><th>Status</th><th>Review</th></tr></thead><tbody>'+rows+'</tbody></table></div></section>';
+}
+function renderSales(){
+ const rows=state.sales.map(s=>'<tr><td><strong>'+safe(s.id.slice(0,8))+'</strong><span class="subtext">'+safe(new Date(s.time).toLocaleString("en-IN"))+'</span></td><td>'+safe(s.item)+'</td><td>'+safe(s.customer)+'</td><td>'+fmt(s.amount)+'</td><td>'+(s.coinsEarned?'<strong class="coin-cell">+'+num(s.coinsEarned)+'</strong>':'<span class="muted">—</span>')+'</td><td>'+badge(s.status,"")+'</td></tr>').join("")||tableEmpty(6,"No sales recorded yet. Record your first sale to start building sales history.");
+ return '<div class="section-metrics"><div class="mini"><span>Revenue today</span><strong>'+fmt(state.dashboard.revenueToday)+'</strong><small>From recorded sales</small></div><div class="mini"><span>Orders today</span><strong>'+state.dashboard.ordersToday+'</strong><small>Database transactions</small></div><div class="mini"><span>Historical records loaded</span><strong>'+state.sales.length+'</strong><small>Most recent 100 sales</small></div><div class="mini"><span>Coin-awarding sales</span><strong>'+state.sales.filter(s=>s.coinsEarned>0).length+'</strong><small>Named customer purchases</small></div></div><section class="panel"><div class="panel-head"><div><div class="panel-title">Daily sales</div><div class="panel-caption">Actual recorded revenue; no synthetic demo values.</div></div><button class="btn btn-primary" data-action="record-sale">+ Record sale</button></div>'+chartSvg()+chartLabels()+'</section><section class="panel" style="margin-top:15px"><div class="panel-head"><div><div class="panel-title">Recent transactions</div><div class="panel-caption">Sales saved by the backend.</div></div></div><div class="table-wrap"><table><thead><tr><th>Sale</th><th>Product</th><th>Customer</th><th>Total</th><th>Coins earned</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table></div></section><section class="panel" style="margin-top:15px"><div class="panel-head"><div><div class="panel-title">Sales variance log</div><div class="panel-caption">Comparison with the previous 2–3 non-zero days; this is a baseline rule, not trained AI.</div></div></div><div class="table-wrap"><table><thead><tr><th>Date</th><th>Actual</th><th>Baseline</th><th>Variance</th><th>Status</th></tr></thead><tbody>'+(state.dashboard.anomalies||[]).map(a=>'<tr><td>'+safe(dateLabel(a.day))+'</td><td>'+fmt(a.actual)+'</td><td>'+fmt(a.expected)+'</td><td class="'+(a.variance>=0?"variance-up":"variance-down")+'">'+(a.variance>0?"+":"")+a.variance+'%</td><td>'+badge(a.status,"warn")+'</td></tr>').join("")||tableEmpty(5,"Record a few days of sales before looking for unusual changes.")+'</tbody></table></div></section>';
+}
+function renderPurchasing(){
+ const items=state.purchasePlan.items||[],rows=items.map(p=>'<tr><td><strong>'+safe(p.name)+'</strong><span class="subtext">'+safe(p.sku)+'</span></td><td>'+num(p.stock)+' '+safe(p.unit)+'</td><td>'+num(p.reorderAt)+'</td><td><strong>'+num(p.quantity)+' '+safe(p.unit)+'</strong></td><td>'+fmt(p.unitCost)+'</td><td>'+fmt(p.estimatedCost)+'</td><td>'+badge(p.averageDailySales>0?"Sales history":"Baseline",p.averageDailySales>0?"":"neutral")+'</td></tr>').join("")||tableEmpty(7,"No products currently need a recommended purchase.");
+ const orders=state.purchaseOrders.map(po=>'<tr><td><strong>'+safe(po.id.slice(0,8))+'</strong><span class="subtext">'+safe(new Date(po.createdAt).toLocaleDateString("en-IN"))+'</span></td><td>'+safe(po.supplierName)+'</td><td>'+po.itemCount+'</td><td>'+fmt(po.totalCost)+'</td><td>'+badge(po.status.replaceAll("_"," "),po.status==="draft"?"warn":"")+'</td><td>'+(["received","cancelled"].includes(po.status)?"—":'<button class="btn btn-secondary" data-action="receive-po" data-id="'+safe(po.id)+'">Receive stock</button>')+'</td></tr>').join("")||tableEmpty(6,"No purchase orders yet.");
+ return '<div class="status-box"><strong>Purchase quantities are calculated from shop data</strong><p>For products with sales history, the planner uses 30-day average sales, supplier lead time, reorder buffer and incoming quantities. With no sales history, it uses a conservative reorder-level baseline. Orders remain drafts unless the configured automation creates an approved internal order. Supplier transmission is not connected.</p></div><div class="section-metrics"><div class="mini"><span>Products to replenish</span><strong>'+items.length+'</strong><small>Based on current stock</small></div><div class="mini"><span>Estimated purchase cost</span><strong>'+fmt(state.purchasePlan.estimatedTotal)+'</strong><small>Unit costs on file</small></div><div class="mini"><span>Purchase orders</span><strong>'+state.purchaseOrders.length+'</strong><small>Stored in PostgreSQL</small></div><div class="mini"><span>Auto-purchase limit</span><strong>'+fmt(state.settings.maxAutoPurchaseAmount)+'</strong><small>'+ (state.settings.autoPurchaseEnabled?"Automation enabled":"Automation disabled")+'</small></div></div><section class="panel"><div class="toolbar"><div><h2>Recommended purchase list</h2><p>Change the inventory and sales records to update these suggestions.</p></div><button class="btn btn-primary" data-action="create-po" '+(items.length?"":"disabled")+'>Create draft order</button></div><div class="table-wrap"><table><thead><tr><th>Product</th><th>Current stock</th><th>Reorder level</th><th>Suggested buy</th><th>Unit cost</th><th>Estimated total</th><th>Planning basis</th></tr></thead><tbody>'+rows+'</tbody></table></div></section><section class="panel" style="margin-top:15px"><div class="panel-head"><div><div class="panel-title">Purchase-order history</div><div class="panel-caption">Receiving a draft updates product stock; it does not contact a supplier.</div></div></div><div class="table-wrap"><table><thead><tr><th>Order</th><th>Supplier</th><th>Items</th><th>Cost</th><th>Status</th><th>Action</th></tr></thead><tbody>'+orders+'</tbody></table></div></section>';
+}
+function renderSuppliers(){
+ const rows=state.suppliers.map(s=>'<tr><td><strong>'+safe(s.name)+'</strong><span class="subtext">'+safe(s.contactPerson||"")+'</span></td><td>'+safe(s.categories||"General")+'</td><td>'+safe(s.phone||"Not set")+'<span class="subtext">'+safe(s.email||"")+'</span></td><td>'+s.leadTimeDays+' days</td><td>'+fmt(s.minimumOrderAmount)+'</td><td>'+badge("Saved","")+'</td></tr>').join("")||tableEmpty(6,"No suppliers yet. Add a supplier record to start organizing vendors.");
+ return '<div class="status-box"><strong>Supplier directory is now stored per shop</strong><p>Contact records are saved in PostgreSQL. Actual electronic orders, vendor price feeds, and email/WhatsApp sending still require supplier-side integrations.</p></div><section class="panel"><div class="toolbar"><div><h2>Supplier directory</h2><p>Add supplier contacts and typical lead times.</p></div><button class="btn btn-primary" data-action="add-supplier">+ Add supplier</button></div><div class="table-wrap"><table><thead><tr><th>Supplier</th><th>Categories</th><th>Contact</th><th>Lead time</th><th>Minimum order</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table></div></section>';
+}
+function renderCustomers(){
+ const rows=state.customers.map(c=>'<tr><td><strong>'+safe(c.name)+'</strong><span class="subtext">'+safe(c.phone||"No phone saved")+'</span></td><td>'+c.orders+'</td><td>'+fmt(c.spend)+'</td><td><strong class="coin-cell">'+num(c.coins)+'</strong></td><td>'+badge(c.coins>=100?"Gold":c.coins>=25?"Silver":"Starter",c.coins>=25?"":"neutral")+'</td></tr>').join("")||tableEmpty(5,"Customers are created when a named sale is recorded.");
+ return '<div class="section-metrics"><div class="mini"><span>Customers</span><strong>'+state.customers.length+'</strong><small>Saved in shop database</small></div><div class="mini"><span>Lifetime customer spend</span><strong>'+fmt(state.customers.reduce((a,c)=>a+c.spend,0))+'</strong><small>Across known customers</small></div><div class="mini"><span>Loyalty coin balance</span><strong>'+num(state.customers.reduce((a,c)=>a+c.coins,0))+'</strong><small>Active points balance</small></div><div class="mini"><span>Recorded customer orders</span><strong>'+state.customers.reduce((a,c)=>a+c.orders,0)+'</strong><small>Named sales only</small></div></div><section class="panel"><div class="panel-head"><div><div class="panel-title">Customer directory</div><div class="panel-caption">A customer account is created automatically when a named purchase is recorded.</div></div><button class="btn btn-primary" data-action="record-sale">+ Record sale</button></div><div class="table-wrap"><table><thead><tr><th>Customer</th><th>Orders</th><th>Lifetime spend</th><th>Coin balance</th><th>Tier</th></tr></thead><tbody>'+rows+'</tbody></table></div></section>';
+}
+function renderLoyalty(){
+ const total=state.customers.reduce((a,c)=>a+c.coins,0);
+ const activity=state.sales.filter(s=>s.coinsEarned>0).map(s=>'<tr><td>'+safe(s.id.slice(0,8))+'</td><td>'+safe(s.item)+'</td><td>'+safe(s.customer)+'</td><td>'+fmt(s.amount)+'</td><td><strong class="coin-cell">+'+num(s.coinsEarned)+'</strong></td></tr>').join("")||tableEmpty(5,"No loyalty coin awards yet.");
+ return '<div class="status-box"><strong>Loyalty coins are calculated on the server</strong><p>Default rule: one coin for every ₹'+num(state.settings.coinThreshold)+' spent on the product line, rounded down. The reward balance and event are written transactionally with a sale, so refreshes or different devices cannot change a customer’s points by editing local storage.</p></div><div class="section-metrics"><div class="mini"><span>Customer wallets</span><strong>'+state.customers.length+'</strong><small>Database records</small></div><div class="mini"><span>Coins outstanding</span><strong>'+num(total)+'</strong><small>Current customer balances</small></div><div class="mini"><span>Coins awarded in history</span><strong>'+num(state.sales.reduce((a,s)=>a+s.coinsEarned,0))+'</strong><small>Recent sales loaded</small></div><div class="mini"><span>Earn rate</span><strong>1 / ₹'+num(state.settings.coinThreshold)+'</strong><small>Per product line</small></div></div><div class="loyalty-layout"><section class="panel"><div class="panel-head"><div><div class="panel-title">Customer coin wallets</div><div class="panel-caption">Balances are backed by the database.</div></div>'+badge("Server calculated","")+'</div><div class="table-wrap"><table><thead><tr><th>Customer</th><th>Spend</th><th>Orders</th><th>Coins</th><th>Tier</th></tr></thead><tbody>'+(state.customers.map(c=>'<tr><td><strong>'+safe(c.name)+'</strong></td><td>'+fmt(c.spend)+'</td><td>'+c.orders+'</td><td><strong class="coin-cell">'+num(c.coins)+'</strong></td><td>'+badge(c.coins>=100?"Gold":c.coins>=25?"Silver":"Starter",c.coins>=25?"":"neutral")+'</td></tr>').join("")||tableEmpty(5,"Record a sale with a customer name to create a wallet."))+'</tbody></table></div></section><section class="panel rule-panel"><div class="panel-head" style="padding:0 0 14px"><div><div class="panel-title">Coin earning rule</div><div class="panel-caption">Applied to future purchases.</div></div></div><label class="field">Rupees per coin<input type="number" min="1" max="1000000" step="1" id="coinThreshold" value="'+safe(state.settings.coinThreshold)+'"></label><div class="example-card"><small>Example product line</small><strong>₹499</strong><div class="coin-equation"><span>Coins earned at this rate</span><b class="coin-value">'+Math.floor(499/state.settings.coinThreshold)+' ◆</b></div></div><p class="panel-caption" style="line-height:1.7;margin:0 0 15px">Coins are points, not cash. Redemption, refunds and returns need their own reversal policy before using a real loyalty program.</p><button class="btn btn-primary" data-action="save-coin-rule">Save earning rule</button></section></div><section class="panel"><div class="panel-head"><div><div class="panel-title">Recent coin activity</div><div class="panel-caption">Transactions from recorded sales.</div></div></div><div class="table-wrap"><table><thead><tr><th>Sale</th><th>Product</th><th>Customer</th><th>Spend</th><th>Coins</th></tr></thead><tbody>'+activity+'</tbody></table></div></section>';
+}
+function renderAutomations(){
+ return '<div class="status-box"><strong>Server-side rules, with purchasing kept behind a limit</strong><p>Expiry is checked by the backend scheduler and during API requests. The purchase scheduler runs on the server about every 15 minutes and creates an internal approved order only when enabled and under the limit, with at most one open automated order per shop. It does not transmit orders or payments; that needs a real supplier integration.</p></div><form id="automationForm" class="panel settings-form"><label class="field form-wide">Automatic internal purchase-order creation<select name="autoPurchaseEnabled"><option value="false" '+(!state.settings.autoPurchaseEnabled?"selected":"")+'>Disabled</option><option value="true" '+(state.settings.autoPurchaseEnabled?"selected":"")+'>Enabled within the configured limit</option></select></label><label class="field">Maximum automatic order value (₹)<input name="maxAutoPurchaseAmount" type="number" min="0" max="100000000" value="'+safe(state.settings.maxAutoPurchaseAmount)+'" required></label><label class="field">Shop time zone<select name="timezone">'+["Asia/Kolkata","UTC","Asia/Dubai","Europe/London","America/New_York"].map(z=>'<option value="'+z+'" '+(z===state.settings.timezone?"selected":"")+'>'+z+'</option>').join("")+'</select></label><div class="form-actions"><button class="btn btn-primary" type="submit">Save automation policy</button></div></form><section class="panel" style="margin-top:15px"><div class="attention-row"><span class="attention-symbol">✓</span><span class="attention-copy"><strong>Expiry processing</strong><small>Server scheduler every minute and on API activity; saves recycle-bin entries and notifications.</small></span>'+badge("Active","")+'</div><div class="attention-row"><span class="attention-symbol">◆</span><span class="attention-copy"><strong>Loyalty coin awards</strong><small>Calculated in the sales transaction and saved to PostgreSQL.</small></span>'+badge("Active","")+'</div><div class="attention-row"><span class="attention-symbol">↗</span><span class="attention-copy"><strong>Sales variance detection</strong><small>Uses recorded daily totals and a simple trailing baseline, not a trained AI model.</small></span>'+badge("Baseline","warn")+'</div><div class="attention-row"><span class="attention-symbol">!</span><span class="attention-copy"><strong>External supplier ordering</strong><small>No supplier API is configured, so automated jobs do not send orders or move money.</small></span>'+badge("Not connected","warn")+'</div></section>';
+}
+function renderSettings(){
+ const apiBase=nativeConfig?.apiBaseUrl||(isNativeApp?"Loading build configuration…":"This website's origin ("+window.location.origin+")");
+ const environment=nativeConfig?.environment||(isNativeApp?"Android app":"Web browser");
+ const version=nativeConfig?.appVersion||"1.0.0";
+ const connection=state.connectionState||(isNativeApp?"Tap Test connection to verify the configured backend.":"API requests use this website's origin.");
+ const connectionOk=/^Connected/.test(connection);
+ if(isNativeApp&&!nativeConfig){ensureNativeConfig().then(()=>{if(page==="settings")render();}).catch(err=>{nativeConfig={apiBaseUrl:"Unavailable",environment:"Android app",appVersion:"1.0.0",packageName:"com.easygateway.app",allowCleartext:false};state.connectionState="Build configuration unavailable: "+(err.message||"unknown error");if(page==="settings")render();});}
+ return '<div class="status-box"><strong>Shop account and persistence</strong><p>Your account and shop records live in PostgreSQL. This is an MVP: review security and backup settings before production use. Passwords are hashed; sessions are server-side.</p></div><section class="panel"><div class="panel-head"><div><div class="panel-title">Connected account</div><div class="panel-caption">Shop-specific records are isolated by the authenticated account.</div></div></div><div class="attention-row"><span class="avatar">EG</span><span class="attention-copy"><strong>'+safe(state.user.shopName)+'</strong><small>'+safe(state.user.name)+' · '+safe(state.user.email)+'</small></span>'+badge("Authenticated","")+'</div><div class="attention-row"><span class="attention-symbol">DB</span><span class="attention-copy"><strong>PostgreSQL</strong><small>Inventory, sales, suppliers, customer wallets, recycle bin and notifications are stored centrally.</small></span>'+badge("Server-side","neutral")+'</div><div class="attention-row"><span class="attention-symbol">S</span><span class="attention-copy"><strong>SAP / POS integration</strong><small>No SAP, payment, barcode or existing POS connector has been configured.</small></span>'+badge("Not connected","warn")+'</div><div class="panel-foot"><span>Sign out from this app session.</span><button class="btn btn-secondary" data-action="logout">Sign out</button></div></section>'+
+ '<section class="panel" style="margin-top:15px"><div class="panel-head"><div><div class="panel-title">App and API connection</div><div class="panel-caption">Configured at build time; credentials and API origins cannot be changed from this screen.</div></div>'+badge(connectionOk?"Backend reachable":"Not checked",connectionOk?"":"neutral")+'</div><div class="panel-body"><div class="qr-detail-grid"><div><small>API base URL</small><strong style="overflow-wrap:anywhere">'+safe(apiBase)+'</strong></div><div><small>Environment</small><strong>'+safe(environment)+'</strong></div><div><small>App version</small><strong>'+safe(version)+'</strong></div><div><small>Package</small><strong>'+safe(nativeConfig?.packageName||"com.easygateway.app")+'</strong></div></div><div class="connection-state" id="connectionState" style="margin-top:14px"><strong>Connection check</strong><br>'+safe(connection)+'</div><div class="scan-actions"><button class="btn btn-secondary" data-action="test-connection">Test connection</button><button class="btn btn-secondary" data-action="customer-share">Share customer store</button></div><p class="qr-note" style="text-align:left;margin-top:12px">'+(isNativeApp?"The Android app sends API requests through a native HTTPS bridge and keeps the HttpOnly Express session cookie in the app's private cookie jar. Camera QR scanning, CSV saving and QR-image sharing use Android system components.":"This browser build talks to the same origin that served the page.")+' '+safe(demoMode?"Demo Mode is on and all changes stay in the local sandbox.":"Live account changes are written to the server database.")+'</p></div></section>';
+}
+function render(){
+ if(!state.user)return;
+ updateModeChrome();markNav();
+ const metadata=({dashboard:["Store overview","A clear view of what’s happening in your shop today."],inventory:["Inventory","Products, stock levels, prices and expiry dates."],expiry:["Expiry & recycle bin","Server-side expiry checks, notifications and recycle-bin records."],waste:["Expiry waste report","Measure the estimated cost of expired inventory from historical snapshots."],qr:["Product QR generator","Generate random sample products for mobile scanning."],orders:["Customer order requests","Review incoming catalogue orders from customers."],sales:["Sales & trends","Recorded transactions, daily revenue and sales variance."],purchasing:["Purchase planner","Suggested quantities from stock, historical sales and lead times."],suppliers:["Suppliers","Supplier contacts and delivery details."],customers:["Customers","Customer history and loyalty balances."],loyalty:["Loyalty coins","Points calculated on the server when a named customer purchases."],automations:["Automations","Configure purchasing limits and retail rules."],settings:["Shop settings","Account and integration status."]})[page]||["Store overview","Manage your shop."];
+ const body=page==="dashboard"?renderDashboard():page==="inventory"?renderInventory():page==="expiry"?renderExpiry():page==="waste"?renderExpiryWasteReport():page==="qr"?renderQrGenerator():page==="orders"?renderCustomerOrders():page==="sales"?renderSales():page==="purchasing"?renderPurchasing():page==="suppliers"?renderSuppliers():page==="customers"?renderCustomers():page==="loyalty"?renderLoyalty():page==="automations"?renderAutomations():renderSettings();
+ $("content").innerHTML='<div class="heading"><div><div class="eyebrow">YOUR SHOP, AT A GLANCE</div><h1>'+metadata[0]+'</h1><p>'+metadata[1]+'</p></div><div class="heading-actions"><span class="demo">'+(demoMode?"DEMO MODE · LOCAL SANDBOX":"Live account data")+'</span>'+(page==="dashboard"||page==="sales"?'<button class="btn btn-secondary" data-action="open-qr-tab">Generate sample QR ↗</button><button class="btn btn-primary" data-action="record-sale">+ Record sale</button>':page==="inventory"?'<button class="btn btn-secondary" data-action="open-qr-tab">Add via QR ↗</button><button class="btn btn-primary" data-action="add-product">+ Add product</button>':page==="suppliers"?'<button class="btn btn-primary" data-action="add-supplier">+ Add supplier</button>':"")+'</div></div>'+body+'<footer class="footer"><span>© 2026 Easy Gateway</span><span>·</span><span>Retail operations workspace</span><span class="footer-spacer"></span><span><i class="footer-dot"></i>'+(demoMode?"Sandbox data only":"Connected account")+'</span><span>v1.1.0</span></footer>';
+ decorateTables($("content"));
+}
+function openProductModal(){
+ $("modalRoot").innerHTML='<div class="modal-backdrop" data-action="backdrop-close"><section class="modal" role="dialog" aria-modal="true"><div class="modal-head"><div><div class="eyebrow">INVENTORY</div><h2>Add a product</h2><p>New products are stored in the shop database.</p></div><button class="icon-btn" data-action="close-modal">×</button></div><form class="form-grid" id="productForm"><label class="field span">Product name<input name="name" required maxlength="180" placeholder="Product name"></label><label class="field">SKU<input name="sku" maxlength="100" placeholder="Auto-generated if blank"></label><label class="field">Barcode (optional)<input name="barcode" maxlength="100" placeholder="EAN, UPC or Code 128"></label><label class="field">Category<select name="category"><option>General retail</option><option>Grocery</option><option>Clothing</option><option>Electronics</option><option>Household</option><option>Stationery</option><option>Personal care</option><option>Food & beverage</option></select></label><label class="field">Unit / pack<input name="unit" required value="piece" maxlength="60"></label><label class="field">Current stock<input name="stock" type="number" min="0" step=".001" required value="0"></label><label class="field">Reorder at<input name="reorderAt" type="number" min="0" step=".001" required value="5"></label><label class="field">Unit cost (₹)<input name="cost" type="number" min="0" step=".01" required value="0"></label><label class="field">Selling price (₹)<input name="price" type="number" min="0" step=".01" required value="0"></label><label class="field">Supplier lead time (days)<input name="leadTimeDays" type="number" min="0" max="180" step="1" required value="3"></label><label class="field">Expiry date (optional)<input name="expiry" type="date"></label><div class="form-actions"><button type="button" class="btn btn-secondary" data-action="close-modal">Cancel</button><button class="btn btn-primary" type="submit">Save product</button></div></form></section></div>';
+}
+function openEditProductModal(productId){
+ const p=state.products.find(x=>x.id===productId);if(!p){toast("That product is no longer in the active inventory.");return;}
+ const categories=["General retail","Grocery","Clothing","Electronics","Household","Stationery","Personal care","Food & beverage"];
+ if(p.category&&!categories.includes(p.category))categories.push(p.category);
+ $("modalRoot").innerHTML='<div class="modal-backdrop" data-action="backdrop-close"><section class="modal" role="dialog" aria-modal="true"><div class="modal-head"><div><div class="eyebrow">INVENTORY</div><h2>Edit product</h2><p>Update product details. Use Adjust stock for an audited quantity change.</p></div><button class="icon-btn" data-action="close-modal">×</button></div><form class="form-grid" id="editProductForm" data-id="'+safe(p.id)+'"><label class="field span">Product name<input name="name" required maxlength="180" value="'+safe(p.name)+'"></label><label class="field">SKU<input name="sku" required maxlength="100" value="'+safe(p.sku)+'"></label><label class="field">Barcode (optional)<input name="barcode" maxlength="100" value="'+safe(p.barcode||"")+'" placeholder="EAN, UPC or Code 128"></label><label class="field">Category<select name="category">'+categories.map(c=>'<option '+(c===p.category?"selected":"")+'>'+safe(c)+'</option>').join("")+'</select></label><label class="field">Unit / pack<input name="unit" required value="'+safe(p.unit)+'" maxlength="60"></label><label class="field">Current stock<input name="stock" type="number" value="'+safe(p.stock)+'" readonly aria-describedby="stockEditHint"></label><label class="field">Reorder at<input name="reorderAt" type="number" min="0" step=".001" required value="'+safe(p.reorderAt)+'"></label><label class="field">Unit cost (₹)<input name="cost" type="number" min="0" step=".01" required value="'+safe(p.cost)+'"></label><label class="field">Selling price (₹)<input name="price" type="number" min="0" step=".01" required value="'+safe(p.price)+'"></label><label class="field">Supplier lead time (days)<input name="leadTimeDays" type="number" min="0" max="180" step="1" required value="'+safe(p.leadTimeDays)+'"></label><label class="field">Expiry date (optional)<input name="expiry" type="date" value="'+safe(String(p.expiry||"").slice(0,10))+'"></label><p class="qr-note" id="stockEditHint" style="grid-column:1/-1;text-align:left">Stock is read-only here so every quantity change keeps an audit notification. Use Adjust for deliveries, counts and corrections.</p><div class="form-actions"><button type="button" class="btn btn-secondary" data-action="close-modal">Cancel</button><button class="btn btn-primary" type="submit">Save changes</button></div></form></section></div>';
+}
+function openSaleModal(){
+ if(!state.products.length){toast("Add products to inventory before recording sales.");return;}
+ const options=state.products.map(p=>'<option value="'+safe(p.id)+'">'+safe(p.name)+' · stock '+num(p.stock)+' · '+fmt(p.price)+'</option>').join("");
+ $("modalRoot").innerHTML='<div class="modal-backdrop" data-action="backdrop-close"><section class="modal" role="dialog" aria-modal="true"><div class="modal-head"><div><div class="eyebrow">SALES</div><h2>Record a sale</h2><p>Stock and loyalty balance update in one database transaction.</p></div><button class="icon-btn" data-action="close-modal">×</button></div><form class="form-grid" id="saleForm"><label class="field span">Product line<select name="productId" id="saleProduct">'+options+'</select></label><label class="field span">Customer name (optional)<input name="customerName" maxlength="120" placeholder="Enter a name to award loyalty coins"></label><label class="field span">Quantity<input name="quantity" id="saleQuantity" type="number" min=".001" step=".001" required value="1"></label><div class="sale-summary"><span>Sale total</span><strong id="saleTotal">'+fmt(state.products[0].price)+'</strong></div><div class="coin-preview"><span>◆</span><span id="coinEstimate">Named customer reward</span><strong id="coinCount">0 coins</strong></div><div class="form-actions"><button type="button" class="btn btn-secondary" data-action="close-modal">Cancel</button><button class="btn btn-primary" type="submit">Record sale</button></div></form></section></div>';
+ updateSalePreview();
+}
+function updateSalePreview(){
+ const form=$("saleForm");if(!form)return;
+ const p=state.products.find(x=>x.id===form.elements.productId.value);if(!p)return;
+ const qty=Math.max(0,Number(form.elements.quantity.value)||0),total=Math.round(p.price*qty*100)/100,named=!!form.elements.customerName.value.trim(),coins=named?Math.floor(total/Math.max(1,state.settings.coinThreshold)):0;
+ $("saleQuantity").max=String(p.stock);$("saleTotal").textContent=fmt(total);
+ $("coinEstimate").textContent=named?"Estimated server-awarded coins":"Enter a customer name to earn coins";
+ $("coinCount").textContent=coins+" coins";
+}
+function openSupplierModal(){
+ $("modalRoot").innerHTML='<div class="modal-backdrop" data-action="backdrop-close"><section class="modal" role="dialog" aria-modal="true"><div class="modal-head"><div><div class="eyebrow">SUPPLIERS</div><h2>Add supplier</h2><p>Supplier records are saved to PostgreSQL.</p></div><button class="icon-btn" data-action="close-modal">×</button></div><form class="form-grid" id="supplierForm"><label class="field span">Supplier name<input name="name" required maxlength="160"></label><label class="field">Contact person<input name="contactPerson" maxlength="200"></label><label class="field">Phone<input name="phone" maxlength="200"></label><label class="field">Email<input name="email" type="email" maxlength="200"></label><label class="field">Categories<input name="categories" placeholder="Staples, dairy…" maxlength="200"></label><label class="field">Lead time in days<input name="leadTimeDays" type="number" min="0" max="180" value="3" required></label><label class="field">Minimum order amount (₹)<input name="minimumOrderAmount" type="number" min="0" step=".01" value="0" required></label><div class="form-actions"><button type="button" class="btn btn-secondary" data-action="close-modal">Cancel</button><button class="btn btn-primary" type="submit">Save supplier</button></div></form></section></div>';
+}
+function openAdjustModal(productId){
+ const p=state.products.find(x=>x.id===productId);if(!p)return;
+ $("modalRoot").innerHTML='<div class="modal-backdrop" data-action="backdrop-close"><section class="modal" role="dialog" aria-modal="true"><div class="modal-head"><div><div class="eyebrow">INVENTORY CONTROL</div><h2>Adjust stock</h2><p>'+safe(p.name)+' · current '+num(p.stock)+' '+safe(p.unit)+'</p></div><button class="icon-btn" data-action="close-modal">×</button></div><form class="form-grid" id="adjustForm" data-id="'+safe(p.id)+'"><label class="field">Quantity change<input name="delta" type="number" step=".001" required placeholder="Use positive to add"></label><label class="field">Reason<input name="reason" required minlength="3" maxlength="240" placeholder="Delivery, count correction…"></label><div class="form-actions"><button type="button" class="btn btn-secondary" data-action="close-modal">Cancel</button><button class="btn btn-primary" type="submit">Save adjustment</button></div></form></section></div>';
+}
+function openPurchaseModal(){
+ const items=state.purchasePlan.items||[];if(!items.length){toast("No products need replenishment at present.");return;}
+ $("modalRoot").innerHTML='<div class="modal-backdrop" data-action="backdrop-close"><section class="modal" role="dialog" aria-modal="true"><div class="modal-head"><div><div class="eyebrow">PURCHASING</div><h2>Create purchase draft</h2><p>Creates an internal draft only. Nothing is sent to the supplier.</p></div><button class="icon-btn" data-action="close-modal">×</button></div><form id="poForm" class="form-grid"><label class="field span">Supplier<select name="supplierId"><option value="">Not assigned</option>'+state.suppliers.map(s=>'<option value="'+safe(s.id)+'">'+safe(s.name)+'</option>').join("")+'</select></label><div class="sale-summary"><span>'+items.length+' product lines</span><strong>'+fmt(state.purchasePlan.estimatedTotal)+'</strong></div><div class="form-actions"><button type="button" class="btn btn-secondary" data-action="close-modal">Cancel</button><button class="btn btn-primary" type="submit">Create draft order</button></div></form></section></div>';
+}
+async function refresh(){
+ const b=await api("/bootstrap");state.user=b.user;state.settings=b.settings;state.products=b.products;state.sales=b.sales;state.customers=b.customers;state.suppliers=b.suppliers;state.recycleBin=b.recycleBin;state.notifications=b.notifications;state.purchaseOrders=b.purchaseOrders;state.dashboard=b.dashboard;
+ try{state.purchasePlan=await api("/purchase-plan");}catch(_){}
+ try{state.customerOrders=(await api("/customer-orders")).orders||[];}catch(_){}
+ render();
+}
+async function withBusy(button,fn){
+ if(busy)return;busy=true;if(button){button.disabled=true;button.dataset.originalText=button.textContent;button.textContent="Working…";}
+ try{await fn();}catch(err){if(err.status===401){showAuth("login","Your session expired. Please sign in again.");}else toast(err.message||"Request failed.");}
+ finally{busy=false;if(button&&button.isConnected){button.disabled=false;if(button.dataset.originalText)button.textContent=button.dataset.originalText;}}
+}
+async function exportCsv(){
+ const rows=[["Product","SKU","Category","Unit","Stock","Reorder at","Unit cost","Selling price","Expiry"],...state.products.map(p=>[p.name,p.sku,p.category,p.unit,p.stock,p.reorderAt,p.cost,p.price,p.expiry])];
+ await saveCsvFile("easy-gateway-inventory.csv",window.EGCore.csv(rows),"Inventory CSV exported.");
+}
+async function submitAuth(form){
+ const fd=new FormData(form),submit=$("authSubmit");submit.disabled=true;submit.textContent="Working…";
+ try{
+  const endpoint=authMode==="register"?"/auth/register":"/auth/login";
+  const body={email:String(fd.get("email")||""),password:String(fd.get("password")||"")};
+  if(authMode==="register"){body.fullName=String(fd.get("fullName")||"");body.shopName=String(fd.get("shopName")||"");}
+  await api(endpoint,{method:"POST",body});await loadData();await consumePendingScanToken();if(page==="qr"&&launchGenerateQr&&!state.qr)await generateSampleProductQr(false);toast(authMode==="register"?"Shop account created. Add your first product to begin.":"Signed in successfully.");
+ }catch(err){const el=$("authError");if(el){el.textContent=err.message;el.classList.add("show");}}
+ finally{if($("authSubmit")){$("authSubmit").disabled=false;$("authSubmit").textContent=authMode==="register"?"Create account":"Sign in securely";}}
+}
+document.addEventListener("click",async event=>{
+ const target=event.target.closest("button,[data-action]");if(!target)return;
+ if(target.dataset.customerAdd){const id=target.dataset.customerAdd,existing=customerCart.find(x=>x.productId===id);if(existing)existing.quantity=Math.min(100,existing.quantity+1);else customerCart.push({productId:id,quantity:1});renderCustomerPortal();return;}
+ if(target.dataset.customerRemove){const id=target.dataset.customerRemove,existing=customerCart.find(x=>x.productId===id);if(existing){existing.quantity--;if(existing.quantity<=0)customerCart=customerCart.filter(x=>x.productId!==id);}renderCustomerPortal();return;}
+ if(target.dataset.page==="qr"){setNavOpen(false);openQrTab();return;}if(target.dataset.page){setNavOpen(false);goToPage(target.dataset.page);return;}
+ const action=target.dataset.action;
+ if(action==="toggle-nav"){setNavOpen(!document.body.classList.contains("nav-open"));return;}
+ if(action==="page-back"){setNavOpen(false);goBackPage();return;}
+ if(action==="scan-qr"){setNavOpen(false);await scanQrCode();return;}
+ if(action==="save-qr"){await saveQrImage();return;}
+ if(action==="edit-product"){openEditProductModal(target.dataset.id);return;}
+ if(action==="inventory-filter"){state.inventoryFilter=target.dataset.filter||"all";render();return;}
+ if(action==="customer-exit"){exitCustomerStore();return;}
+ if(action==="customer-share"){await shareStoreLink();return;}
+ if(action==="test-connection"){await testConnection();return;}
+ if(action==="toggle-demo"){await toggleDemoMode();return;}
+ if(action==="open-qr-tab"){openQrTab();return;}
+ if(action==="customer-store"){openCustomerTab();return;}
+ if(action==="store"){page="settings";render();return;}
+ if(action==="generate-qr"){await generateSampleProductQr(true);return;}
+ if(action==="remove-demo-product"){await withBusy(target,async()=>{await api("/products/"+encodeURIComponent(target.dataset.id)+"/demo",{method:"DELETE",body:{}});await refresh();toast("QR sample removed from inventory.");});return;}
+ if(action==="refresh"){await refresh();return;}
+ if(action==="customer-order-status"){await withBusy(target,async()=>{await api("/customer-orders/"+encodeURIComponent(target.dataset.id)+"/status",{method:"PUT",body:{status:target.dataset.status}});await refresh();toast("Customer request "+target.dataset.status+".");});return;}
+ if(action==="auth-register"){showAuth("register");return;}
+ if(action==="auth-login"){showAuth("login");return;}
+ if(action==="close-modal"){ $("modalRoot").innerHTML="";return;}
+ if(action==="backdrop-close"&&event.target===target){$("modalRoot").innerHTML="";return;}
+ if(action==="record-sale"){openSaleModal();return;}
+ if(action==="add-product"){openProductModal();return;}
+ if(action==="add-supplier"){openSupplierModal();return;}
+ if(action==="adjust-stock"){openAdjustModal(target.dataset.id);return;}
+ if(action==="export"){await exportCsv();return;}
+ if(action==="export-waste"){await exportExpiryWasteCsv();return;}
+ if(action==="create-po"){openPurchaseModal();return;}
+ if(action==="logout"){await withBusy(target,async()=>{await api("/auth/logout",{method:"POST",body:{}});state.user=null;showAuth("login","You have signed out.");});return;}
+ if(action==="alerts"){page="expiry";render();toast(state.notifications.filter(n=>!n.isRead).length+" unread notification(s).");return;}
+ if(action==="save-coin-rule"){await withBusy(target,async()=>{const value=Math.floor(Number($("coinThreshold").value));if(!Number.isFinite(value)||value<1)throw new Error("Set a valid amount of at least ₹1.");const result=await api("/settings",{method:"PUT",body:{coinThreshold:value,maxAutoPurchaseAmount:state.settings.maxAutoPurchaseAmount,autoPurchaseEnabled:state.settings.autoPurchaseEnabled,timezone:state.settings.timezone}});state.settings=result.settings;await refresh();toast("Loyalty earning rule saved.");});return;}
+ if(action==="clear-notifications"){await withBusy(target,async()=>{await api("/notifications",{method:"DELETE",body:{}});await refresh();toast("Notifications marked as read.");});return;}
+ if(action==="mark-read"){await withBusy(target,async()=>{await api("/notifications/"+encodeURIComponent(target.dataset.id)+"/read",{method:"POST",body:{}});await refresh();});return;}
+ if(action==="enable-notifications"){if(!("Notification" in window)){toast("This browser does not support desktop notifications.");return;}const p=await Notification.requestPermission();toast(p==="granted"?"Browser notifications enabled while the app is open.":"Notification permission was not granted.");return;}
+ if(action==="restore-expired"){const row=state.recycleBin.find(x=>x.id===target.dataset.id);if(!row)return;const existing=String(row.expiry||"").slice(0,10);const value=window.prompt("Only restore if the recorded expiry date was wrong. Enter the corrected valid date (YYYY-MM-DD):",existing);if(value===null)return;await withBusy(target,async()=>{await api("/recycle-bin/"+encodeURIComponent(row.id)+"/restore",{method:"POST",body:{expiryDate:value}});await refresh();toast("Product restored after expiry-date correction.");});return;}
+ if(action==="delete-recycled"){if(!window.confirm("Remove this record from the recycle-bin view? Its historical record remains on the server."))return;await withBusy(target,async()=>{await api("/recycle-bin/"+encodeURIComponent(target.dataset.id),{method:"DELETE",body:{}});await refresh();toast("Recycle-bin record hidden.");});return;}
+ if(action==="receive-po"){if(!window.confirm("Mark the outstanding quantities as received? This updates product stock; it does not contact the supplier."))return;await withBusy(target,async()=>{const r=await api("/purchase-orders/"+encodeURIComponent(target.dataset.id)+"/receive",{method:"POST",body:{}});await refresh();toast("Purchase receipt saved. Status: "+r.status.replaceAll("_"," ")+"."+((Array.isArray(r.warnings)&&r.warnings.length)?" "+r.warnings.length+" line(s) need attention: "+r.warnings.join(", ")+". ":""));});return;}
+});
+document.addEventListener("submit",async event=>{
+ const form=event.target;event.preventDefault();
+ if(form.id==="customerCheckoutForm"){if(storeCheckoutBusy)return;const fd=new FormData(form),submit=form.querySelector("#customerCheckoutButton");storeCheckoutBusy=true;if(submit){submit.disabled=true;submit.textContent="Sending…";}try{if(!customerCart.length)throw new Error("Add at least one product to the basket.");const result=await api("/customer/orders",{method:"POST",body:{shopSlug:customerStoreSlug,name:String(fd.get("name")||"").trim(),phone:String(fd.get("phone")||"").trim(),notes:String(fd.get("notes")||"").trim(),items:customerCart}});customerLastOrder=result.order;customerCart=[];renderCustomerPortal();return;}catch(err){const message=String(err.message||"Could not send the order request.");toast(!err.status||/did not respond|failed to fetch|network/i.test(message)?"The request may not have reached the shop. Check with the shop before sending it again.":message);return;}finally{storeCheckoutBusy=false;if(submit&&submit.isConnected){submit.disabled=!customerCart.length;submit.textContent="Send order request";}}}
+ if(form.id==="authForm"){await submitAuth(form);return;}
+ if(form.id==="expiryWasteForm"){const fd=new FormData(form);await loadExpiryWasteReport(String(fd.get("from")||""),String(fd.get("to")||""));return;}
+ if(form.id==="productForm"){await withBusy(form.querySelector('[type="submit"]'),async()=>{const fd=new FormData(form),payload={name:fd.get("name"),sku:fd.get("sku"),barcode:fd.get("barcode")||"",category:fd.get("category"),unit:fd.get("unit"),stock:Number(fd.get("stock")),reorderAt:Number(fd.get("reorderAt")),cost:Number(fd.get("cost")),price:Number(fd.get("price")),leadTimeDays:Number(fd.get("leadTimeDays")),expiry:fd.get("expiry")||null};const r=await api("/products",{method:"POST",body:payload});$("modalRoot").innerHTML="";await refresh();toast(r.recycledImmediately?r.message:"Product saved to PostgreSQL.");});return;}
+ if(form.id==="editProductForm"){await withBusy(form.querySelector('[type="submit"]'),async()=>{const fd=new FormData(form),payload={name:fd.get("name"),sku:fd.get("sku"),barcode:fd.get("barcode")||"",category:fd.get("category"),unit:fd.get("unit"),stock:Number(fd.get("stock")),reorderAt:Number(fd.get("reorderAt")),cost:Number(fd.get("cost")),price:Number(fd.get("price")),leadTimeDays:Number(fd.get("leadTimeDays")),expiry:fd.get("expiry")||null};const r=await api("/products/"+encodeURIComponent(form.dataset.id),{method:"PUT",body:payload});$("modalRoot").innerHTML="";await refresh();toast(r.recycledImmediately?r.message:"Product details updated.");});return;}
+ if(form.id==="saleForm"){await withBusy(form.querySelector('[type="submit"]'),async()=>{const fd=new FormData(form);const r=await api("/sales",{method:"POST",body:{productId:fd.get("productId"),quantity:Number(fd.get("quantity")),customerName:String(fd.get("customerName")||"").trim()}});$("modalRoot").innerHTML="";await refresh();toast(r.coinsEarned>0?"Sale saved. "+r.coinsEarned+" loyalty coin(s) awarded.":"Sale saved to PostgreSQL.");});return;}
+ if(form.id==="supplierForm"){await withBusy(form.querySelector('[type="submit"]'),async()=>{const fd=new FormData(form);await api("/suppliers",{method:"POST",body:{name:fd.get("name"),contactPerson:fd.get("contactPerson"),phone:fd.get("phone"),email:fd.get("email"),categories:fd.get("categories"),leadTimeDays:Number(fd.get("leadTimeDays")),minimumOrderAmount:Number(fd.get("minimumOrderAmount"))}});$("modalRoot").innerHTML="";await refresh();toast("Supplier saved.");});return;}
+ if(form.id==="adjustForm"){await withBusy(form.querySelector('[type="submit"]'),async()=>{const fd=new FormData(form);await api("/products/"+encodeURIComponent(form.dataset.id)+"/stock-adjustments",{method:"POST",body:{delta:Number(fd.get("delta")),reason:fd.get("reason")}});$("modalRoot").innerHTML="";await refresh();toast("Stock adjustment saved with an audit notification.");});return;}
+ if(form.id==="poForm"){await withBusy(form.querySelector('[type="submit"]'),async()=>{const items=(state.purchasePlan.items||[]).map(p=>({productId:p.productId,quantity:p.quantity}));const r=await api("/purchase-orders",{method:"POST",body:{supplierId:form.elements.supplierId.value,items}});$("modalRoot").innerHTML="";await refresh();toast("Purchase draft created: "+r.purchaseOrder.id.slice(0,8)+". No external supplier order was sent.");});return;}
+ if(form.id==="automationForm"){await withBusy(form.querySelector('[type="submit"]'),async()=>{const fd=new FormData(form);const r=await api("/settings",{method:"PUT",body:{coinThreshold:state.settings.coinThreshold,maxAutoPurchaseAmount:Number(fd.get("maxAutoPurchaseAmount")),autoPurchaseEnabled:fd.get("autoPurchaseEnabled")==="true",timezone:fd.get("timezone")}});state.settings=r.settings;await refresh();toast("Automation policy saved on the server.");});return;}
+});
+document.addEventListener("input",event=>{
+ if(event.target.id==="customerSearch"){const pos=event.target.selectionStart;customerSearch=event.target.value;renderCustomerPortal();const next=$("customerSearch");if(next){next.focus();next.setSelectionRange(pos,pos);}}
+ if(event.target.id==="globalSearch"){query=event.target.value;page="inventory";render();const input=$("inventorySearch");if(input){input.value=query;input.focus();input.setSelectionRange(query.length,query.length);}}
+ if(event.target.id==="inventorySearch"){query=event.target.value;const pos=event.target.selectionStart;render();const input=$("inventorySearch");if(input){input.focus();input.setSelectionRange(pos,pos);}}
+ if(event.target.closest("#saleForm")&&(event.target.id==="saleQuantity"||event.target.name==="customerName"))updateSalePreview();
+ if(event.target.id==="coinThreshold"){const preview=document.querySelector(".example-card .coin-value"),v=Math.floor(Number(event.target.value)||1);if(preview)preview.textContent=Math.floor(499/Math.max(v,1))+" ◆";}
+});
+document.addEventListener("change",event=>{if(event.target.id==="saleProduct")updateSalePreview();});
+document.addEventListener("keydown",event=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==="k"){event.preventDefault();$("globalSearch").focus();}if(event.key==="Escape")$("modalRoot").innerHTML="";});
+async function pollNotifications(){
+ if(!state.user||document.hidden)return;
+ try{
+  const result=await api("/notifications");
+  for(const n of result.notifications){if(!knownNotifications.has(n.id)){knownNotifications.add(n.id);if(n.kind==="product_expired"){toast(n.message);if("Notification" in window&&Notification.permission==="granted"){try{new Notification("Easy Gateway: expiry alert",{body:n.message});}catch(_){}}}}}
+  state.notifications=result.notifications;
+  if(page==="expiry")render();
+ }catch(err){if(err.status===401){state.user=null;showAuth("login","Your session expired. Please sign in again.");}}
+}
+function navigate(next){page=next;query="";if(page==="waste"){state.expiryWasteReport=null;state.expiryWasteError="";}render();if(page==="waste")loadExpiryWasteReport();}
+function openProductModalWithBarcode(code){openProductModal();const f=$("productForm");if(f&&f.elements.barcode&&code)f.elements.barcode.value=code;}
+window.EGApp={api,toast,state,refresh,loadDemoData,saveDemoData,render,navigate,fmt,num,safe,localDate,dateLabel,openProductModal,openProductModalWithBarcode,get demoMode(){return demoMode;},nativeShare,scanBarcode:scanQrCode,isNativeApp};
+start();
+window.setInterval(pollNotifications,60000);
+window.setInterval(pollQrTokenStatus,2500);
+})();
+</script>
+<script src="retail-core.js"></script>
+<script src="app-features.js"></script>
+</body>
+</html>

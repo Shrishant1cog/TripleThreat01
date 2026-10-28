@@ -5,3 +5,12 @@ node_modules/
 npm-debug.log*
 .DS_Store
 coverage/
+.assistant_runlogs/
+android-app/dist/
+android-app/android/.gradle/
+android-app/android/**/build/
+android-app/android/local.properties
+*.apk
+*.aab
+*.jks
+*.keystore
