@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: easy-gateway
+    runtime: static
+    branch: main
+    autoDeployTrigger: checksPass
+    buildCommand: mkdir -p public && cp index.html public/index.html
+    staticPublishPath: public
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /index.html
+        name: Cache-Control
+        value: no-cache, no-store, must-revalidate
