@@ -47,13 +47,15 @@ app.use(express.urlencoded({extended:false,limit:"20kb"}));
 app.use(session({
   name:"easy_gateway.sid",
   secret:SESSION_SECRET,
-  store:new PgSession({pool,tableName:"user_sessions",createTableIfMissing:true}),
+  store:new PgSession({pool,tableName:"user_sessions",createTableIfMissing:false}),
   resave:false,saveUninitialized:false,rolling:true,
   cookie:{httpOnly:true,secure:NODE_ENV==="production",sameSite:"lax",maxAge:7*24*60*60*1000}
 }));
 app.use("/api/auth",rateLimit({windowMs:15*60*1000,limit:20,standardHeaders:"draft-8",legacyHeaders:false,message:{error:"Too many authentication attempts. Try again later."}}));
 
 const SCHEMA_SQL = [
+"CREATE TABLE IF NOT EXISTS user_sessions(sid VARCHAR NOT NULL PRIMARY KEY,sess JSON NOT NULL,expire TIMESTAMP(6) NOT NULL)",
+"CREATE INDEX IF NOT EXISTS user_sessions_expire_idx ON user_sessions(expire)",
 "CREATE TABLE IF NOT EXISTS shops(id TEXT PRIMARY KEY,name TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
 "CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY,shop_id TEXT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,full_name TEXT NOT NULL,email TEXT NOT NULL UNIQUE,password_hash TEXT NOT NULL,role TEXT NOT NULL DEFAULT 'owner' CHECK(role IN ('owner','manager','staff')),created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
 "CREATE TABLE IF NOT EXISTS shop_settings(shop_id TEXT PRIMARY KEY REFERENCES shops(id) ON DELETE CASCADE,currency TEXT NOT NULL DEFAULT 'INR',coin_threshold NUMERIC(12,2) NOT NULL DEFAULT 100 CHECK(coin_threshold>=1),timezone TEXT NOT NULL DEFAULT 'Asia/Kolkata',auto_purchase_enabled BOOLEAN NOT NULL DEFAULT FALSE,max_auto_purchase_amount NUMERIC(12,2) NOT NULL DEFAULT 5000 CHECK(max_auto_purchase_amount>=0),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
@@ -82,7 +84,14 @@ const SCHEMA_SQL = [
 async function initializeDatabase(){
   if(!process.env.DATABASE_URL)throw new Error("DATABASE_URL is missing. Configure PostgreSQL before starting Easy Gateway.");
   if(!SESSION_SECRET)throw new Error("SESSION_SECRET is required in production.");
-  await pool.query(SCHEMA_SQL);
+  const client=await pool.connect();
+  try{
+    await client.query("SELECT pg_advisory_lock(71303718)");
+    await client.query(SCHEMA_SQL);
+  }finally{
+    await client.query("SELECT pg_advisory_unlock(71303718)").catch(()=>{});
+    client.release();
+  }
 }
 function publicUser(user){return {id:user.id,name:user.name||user.full_name,email:user.email,role:user.role,shopId:user.shopId||user.shop_id,shopName:user.shopName||user.shop_name};}
 function requireAuth(req,res,next){
