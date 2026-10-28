@@ -4,12 +4,13 @@
   "private": true,
   "description": "Full-stack retail management platform with inventory, sales, loyalty, purchasing, and expiry automation.",
   "engines": {
-    "node": ">=22.13.0"
+    "node": "24.x"
   },
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "check": "node --check server.js"
+    "check": "node --check server.js",
+    "test": "node --test"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
