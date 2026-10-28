@@ -55,6 +55,19 @@ The repository contains a browser-based web app, an Express API, PostgreSQL-back
 
 **Current data model limitation:** expiry is attached to a product record, not separate supplier lots/batches. Retailers receiving the same SKU in multiple batches need batch-level inventory before relying on this for food or regulated-product safety processes.
 
+### Expiry waste and loss reporting
+- A date-filtered report reads historical recycle-bin snapshots, groups losses by expiry month, and lists the highest-cost expired products.
+- Estimated loss is the saved quantity at expiry multiplied by the saved unit cost; records restored after an expiry-date correction are excluded.
+- Values are estimates of inventory cost written off, not missed revenue or guaranteed lost profit. A product with zero remaining stock contributes zero cost loss.
+- Export the monthly breakdown to CSV. The report uses existing real records and does not fabricate samples.
+
+### Single-use product QR codes
+- Generate a random QR code for any active product in the signed-in shop.
+- Each code opens a product-details page and can be consumed once; codes expire after two minutes. The generator detects a scan and automatically issues a fresh QR.
+- The QR scan page shows shop, product name, SKU, category, available stock, selling price, and expiry date. It never exposes unit cost or private purchasing settings.
+- Tokens are generated with cryptographically secure randomness, stored as SHA-256 hashes, and scoped to the shop. Product lookup is constrained to the owning shop.
+- The QR generator is a one-time product-detail lookup flow, not a retail checkout or payment barcode.
+
 ### Daily sales reporting
 - Show actual recorded sales by calendar day.
 - Calculate a basic sales-variance baseline by comparing a day's revenue with the prior two to three non-zero days.
@@ -152,6 +165,10 @@ All shop endpoints require a signed-in session unless noted.
 | \`GET/POST /api/purchase-orders\` | Read/create purchase orders |
 | \`POST /api/purchase-orders/:id/receive\` | Receive stock against a purchase order |
 | \`GET /api/recycle-bin\` | List active recycle-bin records |
+| GET /api/reports/expiry-waste?from=YYYY-MM-DD&to=YYYY-MM-DD | Shop-scoped expiry-loss report from historical snapshots |
+| POST /api/qr-tokens | Create a short-lived one-time QR token and PNG data URL |
+| GET /api/qr-tokens/:token/status | Check whether a QR token was used or expired |
+| GET /scan/:token | Public one-time scan page with safe product details |
 | \`POST /api/recycle-bin/:id/restore\` | Restore after expiry-date correction |
 | \`GET /api/notifications\` | View in-app notifications |
 | \`PUT /api/settings\` | Update coin rule, timezone, and automatic-purchase policy |
@@ -162,7 +179,7 @@ Mutating requests require JSON and same-origin requests. The frontend already se
 
 GitHub Actions checks:
 - JavaScript syntax for the API and inline browser script.
-- Core expiry, loyalty, and scheduler feature markers.
+- Core expiry, waste-report, QR-token, loyalty, and scheduler feature markers.
 - Unit tests for ISO date validation.
 
 See [the workflow](.github/workflows/validate.yml).
@@ -188,7 +205,7 @@ See [the workflow](.github/workflows/validate.yml).
 
 - No Android or iOS application yet; mobile apps should use the same API.
 - No supplier-side API, payment gateway, live POS, SAP, accounting, or tax integration.
-- No CSV import wizard, barcode camera, OCR invoice capture, or customer-facing online storefront.
+- No CSV import wizard, camera scanning directly inside Easy Gateway, OCR invoice capture, or customer-facing online storefront. Product QR links can be opened by a phone camera and scanned once.
 - No lot/batch-level expiry model or product recall workflow.
 - Loyalty refunds, coin redemption, expiry, and reversal policies need ledger flows before launch.
 - No email/SMS push provider; current notifications are in-app.

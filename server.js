@@ -9,6 +9,7 @@ const bcrypt = require("bcryptjs");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const { Pool } = require("pg");
+const QRCode = require("qrcode");
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -77,6 +78,9 @@ const SCHEMA_SQL = [
 "CREATE TABLE IF NOT EXISTS purchase_order_items(id TEXT PRIMARY KEY,purchase_order_id TEXT NOT NULL REFERENCES purchase_orders(id) ON DELETE CASCADE,product_id TEXT REFERENCES products(id) ON DELETE SET NULL,product_name TEXT NOT NULL,quantity NUMERIC(14,3) NOT NULL CHECK(quantity>0),unit_cost NUMERIC(14,2) NOT NULL CHECK(unit_cost>=0),received_quantity NUMERIC(14,3) NOT NULL DEFAULT 0 CHECK(received_quantity>=0))",
 "CREATE TABLE IF NOT EXISTS recycle_bin(id TEXT PRIMARY KEY,shop_id TEXT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,product_id TEXT NOT NULL,product_snapshot JSONB NOT NULL,stock_at_expiry NUMERIC(14,3) NOT NULL DEFAULT 0,expiry_date DATE NOT NULL,reason TEXT NOT NULL,recycled_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),restored_at TIMESTAMPTZ,deleted_at TIMESTAMPTZ)",
 "CREATE INDEX IF NOT EXISTS recycle_bin_shop_active_idx ON recycle_bin(shop_id,recycled_at DESC) WHERE restored_at IS NULL AND deleted_at IS NULL",
+"CREATE INDEX IF NOT EXISTS recycle_bin_shop_expiry_idx ON recycle_bin(shop_id,expiry_date) WHERE restored_at IS NULL",
+"CREATE TABLE IF NOT EXISTS product_qr_tokens(id TEXT PRIMARY KEY,shop_id TEXT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,token_hash TEXT NOT NULL UNIQUE,expires_at TIMESTAMPTZ NOT NULL,consumed_at TIMESTAMPTZ,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
+"CREATE INDEX IF NOT EXISTS product_qr_tokens_shop_idx ON product_qr_tokens(shop_id,created_at DESC)",
 "CREATE TABLE IF NOT EXISTS notifications(id TEXT PRIMARY KEY,shop_id TEXT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,kind TEXT NOT NULL,title TEXT NOT NULL,message TEXT NOT NULL,payload JSONB NOT NULL DEFAULT '{}'::jsonb,is_read BOOLEAN NOT NULL DEFAULT FALSE,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
 "CREATE INDEX IF NOT EXISTS notifications_shop_idx ON notifications(shop_id,created_at DESC)"
 ].join(";\n")+";\n";
@@ -127,6 +131,23 @@ function validDate(value){
   const p=String(value).split("-").map(Number),d=new Date(Date.UTC(p[0],p[1]-1,p[2]));
   return d.getUTCFullYear()===p[0]&&d.getUTCMonth()===p[1]-1&&d.getUTCDate()===p[2];
 }
+
+function validDateRange(from,to){return validDate(from)&&validDate(to)&&from<=to;}
+function createQrToken(){return crypto.randomBytes(32).toString("base64url");}
+function hashQrToken(token){return crypto.createHash("sha256").update(String(token)).digest("hex");}
+function escapeHtml(value){
+  const map={"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"};
+  return String(value==null?"":value).replace(/[&<>"']/g,c=>map[c]);
+}
+function qrProductDetails(row){
+  return {shopName:String(row.shop_name||"Shop"),name:String(row.name||"Product"),sku:String(row.sku||""),category:String(row.category||"General retail"),unit:String(row.unit||"piece"),stock:Number(row.stock)||0,price:Number(row.selling_price)||0,expiry:row.expiry_date?String(row.expiry_date).slice(0,10):""};
+}
+function qrScanPage(details){
+  const esc=escapeHtml;
+  if(!details)return '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>QR code unavailable · Easy Gateway</title><style>body{font:16px/1.55 system-ui,sans-serif;background:#f5f7f3;color:#243528;margin:0;padding:24px}.card{max-width:520px;margin:8vh auto;background:white;border:1px solid #e1e8dd;border-radius:16px;padding:28px}a{color:#315d3d}</style><main class="card"><h1>QR code unavailable</h1><p>This QR code has already been scanned, expired, or the product is no longer active.</p><p>Ask the shop operator to generate a fresh code.</p><a href="/">Open Easy Gateway</a></main></html>';
+  const expiry=details.expiry||"Not set";
+  return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>'+esc(details.name)+' · Easy Gateway product</title><style>body{font:15px/1.55 system-ui,-apple-system,Segoe UI,sans-serif;background:#f5f7f3;color:#243528;margin:0;padding:22px}.card{max-width:560px;margin:3vh auto;background:white;border:1px solid #e1e8dd;border-radius:16px;padding:26px;box-shadow:0 10px 30px #203a2910}.eyebrow{font-size:11px;letter-spacing:1px;color:#5b7d5c;font-weight:800}.shop{color:#7a8876;font-size:13px}h1{font-size:27px;line-height:1.15;margin:10px 0}dl{display:grid;grid-template-columns:130px 1fr;gap:10px;margin:22px 0}dt{color:#788474}dd{margin:0;font-weight:650;overflow-wrap:anywhere}.note{border-top:1px solid #e8ede5;padding-top:14px;font-size:12px;color:#7b8777}a{color:#315d3d}@media(max-width:420px){dl{grid-template-columns:1fr;gap:3px}dd{margin-bottom:10px}}</style></head><body><main class="card"><div class="eyebrow">EASY GATEWAY · PRODUCT DETAILS</div><h1>'+esc(details.name)+'</h1><div class="shop">'+esc(details.shopName)+'</div><dl><dt>SKU</dt><dd>'+esc(details.sku||"Not set")+'</dd><dt>Category</dt><dd>'+esc(details.category)+'</dd><dt>Available stock</dt><dd>'+esc(details.stock.toLocaleString("en-IN"))+' '+esc(details.unit)+'</dd><dt>Selling price</dt><dd>₹'+esc(details.price.toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2}))+'</dd><dt>Expiry date</dt><dd>'+esc(expiry)+'</dd></dl><p class="note">This is a one-time QR link. It expires after two minutes and cannot be reused after a successful scan. Purchase cost and other private inventory settings are not shown.</p><p><a href="/">Easy Gateway</a></p></main></body></html>';
+}
 async function expirySweep(){
   const client=await pool.connect();
   try{
@@ -150,9 +171,26 @@ async function runExpirySweep(){
   expirySweepInFlight=expirySweep();
   try{return await expirySweepInFlight;}finally{expirySweepInFlight=null;}
 }
-app.use("/api",asyncRoute(async(req,res,next)=>{try{await runExpirySweep();}catch(err){console.error("Expiry sweep failed:",err.message);}next();}));
+app.use("/api",asyncRoute(async(req,res,next)=>{if(/^\/qr-tokens\/[^/]+\/status$/.test(req.path))return next();try{await runExpirySweep();}catch(err){console.error("Expiry sweep failed:",err.message);}next();}));
 
 app.get("/healthz",asyncRoute(async(_req,res)=>{await pool.query("SELECT 1");res.json({ok:true,service:"easy-gateway",database:"connected",time:new Date().toISOString()});}));
+
+app.get("/scan/:token",asyncRoute(async(req,res)=>{
+  res.set("Cache-Control","no-store, max-age=0");
+  const token=text(req.params.token);
+  if(!/^[A-Za-z0-9_-]{43}$/.test(token))return res.status(410).type("html").send(qrScanPage(null));
+  const client=await pool.connect();
+  try{
+    await client.query("BEGIN");
+    const claimed=await client.query("UPDATE product_qr_tokens q SET consumed_at=NOW() WHERE q.token_hash=$1 AND q.consumed_at IS NULL AND q.expires_at>NOW() AND EXISTS(SELECT 1 FROM products p WHERE p.id=q.product_id AND p.shop_id=q.shop_id AND p.is_active=TRUE) RETURNING q.shop_id,q.product_id",[hashQrToken(token)]);
+    if(!claimed.rowCount){await client.query("ROLLBACK");return res.status(410).type("html").send(qrScanPage(null));}
+    const product=await client.query("SELECT s.name AS shop_name,p.name,p.sku,p.category,p.unit,p.stock,p.selling_price,p.expiry_date::text AS expiry_date FROM products p JOIN shops s ON s.id=p.shop_id WHERE p.id=$1 AND p.shop_id=$2 AND p.is_active=TRUE",[claimed.rows[0].product_id,claimed.rows[0].shop_id]);
+    if(!product.rowCount){await client.query("ROLLBACK");return res.status(410).type("html").send(qrScanPage(null));}
+    await client.query("COMMIT");
+    return res.type("html").send(qrScanPage(qrProductDetails(product.rows[0])));
+  }catch(err){await client.query("ROLLBACK").catch(()=>{});throw err;}
+  finally{client.release();}
+}));
 app.get("/",(_req,res)=>res.sendFile(path.join(__dirname,"index.html")));
 app.get("/favicon.ico",(_req,res)=>res.status(204).end());
 
@@ -382,6 +420,46 @@ app.get("/api/recycle-bin",requireAuth,asyncRoute(async(req,res)=>{
   const r=await pool.query("SELECT * FROM recycle_bin WHERE shop_id=$1 AND restored_at IS NULL AND deleted_at IS NULL ORDER BY recycled_at DESC",[req.user.shopId]);
   res.json({items:r.rows.map(x=>({id:x.id,productId:x.product_id,product:x.product_snapshot,stockAtExpiry:Number(x.stock_at_expiry),expiry:x.expiry_date,reason:x.reason,recycledAt:x.recycled_at}))});
 }));
+
+app.get("/api/reports/expiry-waste",requireAuth,asyncRoute(async(req,res)=>{
+  const shopId=req.user.shopId;
+  const settings=await pool.query("SELECT timezone FROM shop_settings WHERE shop_id=$1",[shopId]);
+  if(!settings.rowCount)throw fail(404,"Shop settings were not found.");
+  const range=await pool.query("SELECT TO_CHAR((NOW() AT TIME ZONE $1)::date,'YYYY-MM-DD') AS today,TO_CHAR((DATE_TRUNC('month',NOW() AT TIME ZONE $1)-INTERVAL '11 months')::date,'YYYY-MM-DD') AS default_from",[settings.rows[0].timezone||"Asia/Kolkata"]);
+  const from=text(req.query.from)||range.rows[0].default_from,to=text(req.query.to)||range.rows[0].today;
+  if(!validDateRange(from,to))throw fail(400,"Enter a valid date range with the start date on or before the end date.");
+  const where=" FROM recycle_bin WHERE shop_id=$1 AND restored_at IS NULL AND expiry_date BETWEEN $2::date AND $3::date";
+  const costExpr="COALESCE(NULLIF(product_snapshot->>'cost','')::numeric,0)";
+  const [summary,monthly,products]=await Promise.all([
+    pool.query("SELECT COUNT(*)::int AS expired_records,COUNT(*) FILTER(WHERE stock_at_expiry>0)::int AS records_with_stock,COALESCE(SUM(stock_at_expiry),0)::numeric(14,3) AS quantity,COALESCE(SUM(stock_at_expiry*"+costExpr+"),0)::numeric(14,2) AS estimated_loss"+where,[shopId,from,to]),
+    pool.query("SELECT TO_CHAR(DATE_TRUNC('month',expiry_date::timestamp),'YYYY-MM') AS month,COUNT(*)::int AS records,COALESCE(SUM(stock_at_expiry),0)::numeric(14,3) AS quantity,COALESCE(SUM(stock_at_expiry*"+costExpr+"),0)::numeric(14,2) AS estimated_loss"+where+" GROUP BY 1 ORDER BY 1",[shopId,from,to]),
+    pool.query("SELECT COALESCE(product_snapshot->>'id',product_id) AS product_id,COALESCE(product_snapshot->>'name','Unknown product') AS name,COALESCE(product_snapshot->>'category','General retail') AS category,COUNT(*)::int AS records,COALESCE(SUM(stock_at_expiry),0)::numeric(14,3) AS quantity,COALESCE(SUM(stock_at_expiry*"+costExpr+"),0)::numeric(14,2) AS estimated_loss"+where+" GROUP BY 1,2,3 ORDER BY 6 DESC,2 LIMIT 10",[shopId,from,to])
+  ]);
+  const n=v=>Number(v)||0;
+  res.set("Cache-Control","no-store").json({from,to,summary:{expiredRecords:n(summary.rows[0].expired_records),recordsWithStock:n(summary.rows[0].records_with_stock),quantity:n(summary.rows[0].quantity),estimatedLoss:n(summary.rows[0].estimated_loss)},monthly:monthly.rows.map(r=>({month:r.month,records:n(r.records),quantity:n(r.quantity),estimatedLoss:n(r.estimated_loss)})),products:products.rows.map(r=>({productId:r.product_id,name:r.name,category:r.category,records:n(r.records),quantity:n(r.quantity),estimatedLoss:n(r.estimated_loss)}))});
+}));
+
+app.post("/api/qr-tokens",requireAuth,rateLimit({windowMs:15*60*1000,limit:60,standardHeaders:"draft-8",legacyHeaders:false,message:{error:"Too many QR codes generated. Try again in a few minutes."}}),asyncRoute(async(req,res)=>{
+  const productId=text(req.body.productId);
+  if(!productId)throw fail(400,"Choose a product to generate its QR code.");
+  const product=await pool.query("SELECT p.id,p.name FROM products p WHERE p.id=$1 AND p.shop_id=$2 AND p.is_active=TRUE",[productId,req.user.shopId]);
+  if(!product.rowCount)throw fail(404,"That product is not active in this shop.");
+  await pool.query("DELETE FROM product_qr_tokens WHERE expires_at<NOW()-INTERVAL '1 day' OR consumed_at<NOW()-INTERVAL '1 day'");
+  const token=createQrToken(),expiresAt=new Date(Date.now()+2*60*1000).toISOString();
+  await pool.query("INSERT INTO product_qr_tokens(id,shop_id,product_id,token_hash,expires_at) VALUES($1,$2,$3,$4,$5)",[id(),req.user.shopId,productId,hashQrToken(token),expiresAt]);
+  const origin=process.env.PUBLIC_APP_URL||(req.protocol+"://"+req.get("host"));
+  const scanUrl=new URL("/scan/"+token,origin).toString();
+  const qrDataUrl=await QRCode.toDataURL(scanUrl,{errorCorrectionLevel:"M",width:320,margin:2,color:{dark:"#203a29",light:"#ffffff"}});
+  res.status(201).set("Cache-Control","no-store").json({productId,productName:product.rows[0].name,token,scanUrl,qrDataUrl,expiresAt});
+}));
+app.get("/api/qr-tokens/:token/status",requireAuth,asyncRoute(async(req,res)=>{
+  const token=text(req.params.token);
+  if(!/^[A-Za-z0-9_-]{43}$/.test(token))return res.json({consumed:true,expired:true});
+  const result=await pool.query("SELECT consumed_at,expires_at,(expires_at<=NOW()) AS expired FROM product_qr_tokens WHERE token_hash=$1 AND shop_id=$2",[hashQrToken(token),req.user.shopId]);
+  if(!result.rowCount)return res.json({consumed:true,expired:true});
+  res.set("Cache-Control","no-store").json({consumed:!!result.rows[0].consumed_at,expired:!!result.rows[0].expired,expiresAt:result.rows[0].expires_at});
+}));
+
 app.post("/api/recycle-bin/:id/restore",requireAuth,asyncRoute(async(req,res)=>{
   const expiry=text(req.body.expiryDate);if(!validDate(expiry))throw fail(400,"Enter a valid corrected expiry date.");
   const client=await pool.connect();
@@ -475,4 +553,4 @@ async function shutdown(signal){
 process.on("SIGTERM",()=>shutdown("SIGTERM"));
 process.on("SIGINT",()=>shutdown("SIGINT"));
 if(require.main===module)start().catch(err=>{console.error("Easy Gateway failed to start:",err.message);process.exit(1);});
-module.exports={app,initializeDatabase,runExpirySweep,runAutoPurchaseCycle,calculateDashboard,getPurchasePlan,validDate,closeDatabase:()=>pool.end()};
+module.exports={app,initializeDatabase,runExpirySweep,runAutoPurchaseCycle,calculateDashboard,getPurchasePlan,validDate,validDateRange,createQrToken,hashQrToken,qrProductDetails,escapeHtml,closeDatabase:()=>pool.end()};

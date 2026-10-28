@@ -46,6 +46,12 @@ jobs:
               "runExpirySweep",
               "runAutoPurchaseCycle",
               "recycle_bin",
+              "/api/reports/expiry-waste",
+              "/api/qr-tokens",
+              "product_qr_tokens",
+              "/scan/:token",
+              "Expiry waste report",
+              "Product QR generator",
           ]
           missing = [item for item in required if item not in combined]
           if missing:
