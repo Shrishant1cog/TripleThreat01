@@ -89,6 +89,7 @@ const SCHEMA_SQL = [
 "CREATE TABLE IF NOT EXISTS product_qr_tokens(id TEXT PRIMARY KEY,shop_id TEXT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,token_hash TEXT NOT NULL UNIQUE,expires_at TIMESTAMPTZ NOT NULL,consumed_at TIMESTAMPTZ,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
 "CREATE INDEX IF NOT EXISTS product_qr_tokens_shop_idx ON product_qr_tokens(shop_id,created_at DESC)",
 "CREATE TABLE IF NOT EXISTS product_import_qr_tokens(id TEXT PRIMARY KEY,token_hash TEXT NOT NULL UNIQUE,product_snapshot JSONB NOT NULL,expires_at TIMESTAMPTZ NOT NULL,consumed_at TIMESTAMPTZ,consumed_by_shop_id TEXT REFERENCES shops(id) ON DELETE SET NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
+"ALTER TABLE product_import_qr_tokens ADD COLUMN IF NOT EXISTS demo_only BOOLEAN NOT NULL DEFAULT FALSE",
 "CREATE INDEX IF NOT EXISTS product_import_qr_tokens_created_idx ON product_import_qr_tokens(created_at DESC)",
 "CREATE TABLE IF NOT EXISTS customer_orders(id TEXT PRIMARY KEY,shop_id TEXT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,customer_name TEXT NOT NULL,customer_phone TEXT NOT NULL,notes TEXT NOT NULL DEFAULT '',items JSONB NOT NULL,total NUMERIC(14,2) NOT NULL,status TEXT NOT NULL DEFAULT 'requested' CHECK(status IN ('requested','accepted','declined')),created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
 "CREATE INDEX IF NOT EXISTS customer_orders_shop_idx ON customer_orders(shop_id,created_at DESC)",
@@ -580,7 +581,7 @@ function importLandingPage(token,demoOnly){
 app.post("/api/demo-product-qr",rateLimit({windowMs:15*60*1000,limit:60,standardHeaders:"draft-8",legacyHeaders:false,message:{error:"Too many demo QR codes generated. Please try later."}}),asyncRoute(async(req,res)=>{
  const product=generateDemoProduct(),token=createQrToken(),demoOnly=req.body?.demoMode===true,expiresAt=new Date(Date.now()+15*60*1000).toISOString();
  await pool.query("DELETE FROM product_import_qr_tokens WHERE expires_at<NOW()-INTERVAL '1 day' OR consumed_at<NOW()-INTERVAL '1 day'");
- await pool.query("INSERT INTO product_import_qr_tokens(id,token_hash,product_snapshot,expires_at) VALUES($1,$2,$3::jsonb,$4)",[id(),hashQrToken(token),JSON.stringify(product),expiresAt]);
+ await pool.query("INSERT INTO product_import_qr_tokens(id,token_hash,product_snapshot,expires_at,demo_only) VALUES($1,$2,$3::jsonb,$4,$5)",[id(),hashQrToken(token),JSON.stringify(product),expiresAt,demoOnly]);
  const origin=process.env.PUBLIC_APP_URL||(req.protocol+"://"+req.get("host")),url=new URL("/import-product/"+token,origin);
  if(demoOnly)url.searchParams.set("mode","demo");
  const qrDataUrl=await QRCode.toDataURL(url.toString(),{errorCorrectionLevel:"M",width:360,margin:2,color:{dark:"#203a29",light:"#ffffff"}});
@@ -597,7 +598,7 @@ app.post("/api/demo-product-qr/consume-preview",rateLimit({windowMs:15*60*1000,l
  const client=await pool.connect();
  try{
   await client.query("BEGIN");const r=await client.query("SELECT * FROM product_import_qr_tokens WHERE token_hash=$1 FOR UPDATE",[hashQrToken(token)]);
-  if(!r.rowCount||r.rows[0].consumed_at||new Date(r.rows[0].expires_at)<=new Date())throw fail(410,"This demo QR has expired or has already been scanned. Generate a fresh code.");
+  if(!r.rowCount||!r.rows[0].demo_only||r.rows[0].consumed_at||new Date(r.rows[0].expires_at)<=new Date())throw fail(410,"This demo-only QR has expired, is not a demo token, or has already been scanned. Generate a fresh code.");
   const product=r.rows[0].product_snapshot;await client.query("UPDATE product_import_qr_tokens SET consumed_at=NOW() WHERE id=$1",[r.rows[0].id]);
   await client.query("COMMIT");res.set("Cache-Control","no-store").json({ok:true,product,demoOnly:true});
  }catch(err){await client.query("ROLLBACK").catch(()=>{});throw err;}finally{client.release();}
@@ -607,7 +608,7 @@ app.post("/api/product-import/consume",requireAuth,rateLimit({windowMs:15*60*100
  const shopId=req.user.shopId,client=await pool.connect();
  try{
   await client.query("BEGIN");const t=await client.query("SELECT * FROM product_import_qr_tokens WHERE token_hash=$1 FOR UPDATE",[hashQrToken(token)]);
-  if(!t.rowCount||t.rows[0].consumed_at||new Date(t.rows[0].expires_at)<=new Date())throw fail(410,"This demo QR has expired or has already been scanned. Generate a fresh code.");
+  if(!t.rowCount||t.rows[0].demo_only||t.rows[0].consumed_at||new Date(t.rows[0].expires_at)<=new Date())throw fail(410,"This live import QR has expired, is a demo-only code, or has already been scanned. Generate a fresh code.");
   const p=t.rows[0].product_snapshot;let sku=text(p.sku).slice(0,90);
   if((await client.query("SELECT 1 FROM products WHERE shop_id=$1 AND LOWER(sku)=LOWER($2)",[shopId,sku])).rowCount)sku=sku+"-"+crypto.randomBytes(2).toString("hex").toUpperCase();
   const product=await client.query("INSERT INTO products(id,shop_id,name,sku,category,unit,stock,reorder_at,unit_cost,selling_price,lead_time_days,expiry_date,is_demo) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,TRUE) RETURNING *",[id(),shopId,p.name,sku,p.category,p.unit,p.stock,p.reorderAt,p.cost,p.price,p.leadTimeDays,p.expiry||null]);
