@@ -1,21 +1,48 @@
 services:
   - type: web
     name: easy-gateway
-    runtime: static
+    runtime: node
+    plan: free
+    region: singapore
     branch: main
     autoDeployTrigger: checksPass
-    buildCommand: mkdir -p public && cp index.html public/index.html
-    staticPublishPath: public
-    headers:
-      - path: /*
-        name: X-Content-Type-Options
-        value: nosniff
-      - path: /*
-        name: X-Frame-Options
-        value: DENY
-      - path: /*
-        name: Referrer-Policy
-        value: strict-origin-when-cross-origin
-      - path: /index.html
-        name: Cache-Control
-        value: no-cache, no-store, must-revalidate
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: easy-gateway-db
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
+
+  - type: cron
+    name: easy-gateway-maintenance
+    runtime: node
+    plan: 0.5c-512mb
+    region: singapore
+    branch: main
+    schedule: "*/15 * * * *"
+    buildCommand: npm install
+    startCommand: node scripts/maintenance.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: easy-gateway-db
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
+
+databases:
+  - name: easy-gateway-db
+    databaseName: easy_gateway
+    user: easy_gateway_user
+    plan: 0.1c-256mb
+    region: singapore
+    postgresMajorVersion: "18"
+    ipAllowList: []
