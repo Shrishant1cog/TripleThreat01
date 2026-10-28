@@ -10,7 +10,8 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "check": "node --check server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "test:e2e": "node scripts/e2e-api.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
@@ -20,6 +21,7 @@
     "express-rate-limit": "^8.1.0",
     "express-session": "^1.18.2",
     "helmet": "^8.1.0",
+    "nodemailer": "^10.2.1",
     "pg": "^8.23.1",
     "qrcode": "^1.5.4"
   }

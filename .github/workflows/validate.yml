@@ -2,9 +2,9 @@ name: Validate Easy Gateway
 
 on:
   push:
-    branches: [main]
+    branches: [main, feature/easy-gateway-android]
   pull_request:
-    branches: [main]
+    branches: [main, feature/easy-gateway-android]
 
 permissions:
   contents: read
@@ -22,7 +22,7 @@ jobs:
           node-version: 24
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Extract browser JavaScript and verify feature markers
         run: |
@@ -32,12 +32,14 @@ jobs:
 
           html = Path("index.html").read_text(encoding="utf-8")
           server = Path("server.js").read_text(encoding="utf-8")
+          features = Path("app-features.js").read_text(encoding="utf-8")
+          retail = Path("lib/retail-core.js").read_text(encoding="utf-8")
           scripts = re.findall(r"<script>(.*?)</script>", html, re.DOTALL)
           if not scripts:
               raise SystemExit("No inline browser script found in index.html")
           Path("/tmp/easy-gateway-inline.js").write_text("\n".join(scripts), encoding="utf-8")
 
-          combined = html + "\n" + server
+          combined = html + "\n" + server + "\n" + features + "\n" + retail
           required = [
               'data-page="expiry"',
               'data-action="restore-expired"',
@@ -59,6 +61,12 @@ jobs:
               "/api/demo-product-qr",
               "/api/customer/orders",
               "/shop/:slug",
+              "/api/stock/receipts",
+              "/api/loyalty/rewards",
+              "/api/loyalty/redeem",
+              "trackSerials",
+              "nextOrderStatus",
+              "processEmailOutbox",
           ]
           missing = [item for item in required if item not in combined]
           if missing:
@@ -68,6 +76,11 @@ jobs:
 
       - name: Check backend JavaScript syntax
         run: npm run check
+
+      - name: Check shared browser scripts syntax
+        run: |
+          node --check app-features.js
+          node --check lib/retail-core.js
 
       - name: Check browser JavaScript syntax
         run: node --check /tmp/easy-gateway-inline.js
