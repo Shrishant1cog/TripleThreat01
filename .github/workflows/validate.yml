@@ -1,0 +1,50 @@
+name: Validate Easy Gateway
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate-static-site:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Extract inline JavaScript
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          source = Path("index.html").read_text(encoding="utf-8")
+          scripts = re.findall(r"<script>(.*?)</script>", source, re.DOTALL)
+          if not scripts:
+              raise SystemExit("No inline script found in index.html")
+          Path("/tmp/easy-gateway-inline.js").write_text("\n".join(scripts), encoding="utf-8")
+
+          required = [
+              'data-page="expiry"',
+              'data-action="restore-expired"',
+              "processExpiredProducts",
+              "notifyExpiredProduct",
+              "save-coin-rule",
+          ]
+          missing = [item for item in required if item not in source]
+          if missing:
+              raise SystemExit("Missing required feature markers: " + ", ".join(missing))
+          print("Required expiry and loyalty features are present.")
+          PY
+
+      - name: Check JavaScript syntax
+        run: node --check /tmp/easy-gateway-inline.js
