@@ -5,3 +5,17 @@ node_modules/
 npm-debug.log*
 .DS_Store
 coverage/
+.assistant_runlogs/
+
+# Android build outputs and machine-specific files
+android-app/node_modules/
+android-app/dist/
+android-app/android/.gradle/
+android-app/android/.kotlin/
+android-app/android/build/
+android-app/android/app/build/
+android-app/android/local.properties
+android-app/**/*.apk
+android-app/**/*.aab
+android-app/**/*.jks
+android-app/**/*.keystore

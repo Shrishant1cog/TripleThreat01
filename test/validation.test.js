@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { validDate, validDateRange, createQrToken, hashQrToken, qrProductDetails, escapeHtml, generateDemoProduct, publicCustomerProduct } = require("../server");
+const { validDate, validDateRange, dateOnly, isBeforeDate, createQrToken, hashQrToken, isLoopbackHostname, resolvePublicOrigin, qrProductDetails, escapeHtml, generateDemoProduct, publicCustomerProduct } = require("../server");
 
 test("validDate accepts real ISO calendar dates", () => {
   assert.equal(validDate("2026-10-28"), true);
@@ -67,9 +67,49 @@ test("random demo product templates contain plausible inventory fields", () => {
   }
 });
 
+test("QR origins never use a loopback address that a phone cannot reach", () => {
+  for (const host of ["localhost", "LOCALHOST", "127.0.0.1", "127.0.0.2", "::1", "[::1]", "0.0.0.0", "shop.localhost"]) {
+    assert.equal(isLoopbackHostname(host), true, host);
+  }
+  for (const host of ["10.43.232.32", "192.168.1.20", "easy-gateway.onrender.com", "172.16.4.9"]) {
+    assert.equal(isLoopbackHostname(host), false, host);
+  }
+  const localRequest = { protocol: "http", get: name => name === "host" ? "localhost:3000" : "" };
+  assert.throws(() => resolvePublicOrigin(localRequest, {}), /PUBLIC_APP_URL|phone cannot open/i);
+  assert.throws(() => resolvePublicOrigin(localRequest, { PUBLIC_APP_URL: "http://127.0.0.1:3000" }), /PUBLIC_APP_URL|phone cannot open/i);
+});
+
+test("QR origins prefer PUBLIC_APP_URL and fall back to the request host", () => {
+  const request = { protocol: "http", get: name => name === "host" ? "10.43.232.32:3000" : "" };
+  assert.equal(resolvePublicOrigin(request, {}), "http://10.43.232.32:3000");
+  assert.equal(resolvePublicOrigin(request, { PUBLIC_APP_URL: "http://10.43.232.32:3000/" }), "http://10.43.232.32:3000");
+  assert.equal(resolvePublicOrigin(request, { PUBLIC_APP_URL: "https://shop.example.test" }), "https://shop.example.test");
+  assert.throws(() => resolvePublicOrigin(request, { PUBLIC_APP_URL: "not a url" }), /valid URL/i);
+});
+
 test("public customer catalogue DTO excludes internal unit cost and exact stock", () => {
   const product = publicCustomerProduct({id:"p1",name:"Rice",sku:"RICE1",category:"Grocery",unit:"bag",stock:"8",selling_price:"95.50",unit_cost:"75"});
   assert.deepEqual(product, {id:"p1",name:"Rice",sku:"RICE1",category:"Grocery",unit:"bag",price:95.5,available:true});
   assert.equal("cost" in product, false);
   assert.equal("stock" in product, false);
+});
+
+test("dateOnly keeps the calendar day for pg DATE objects in any server timezone", () => {
+  assert.equal(dateOnly(new Date(2026, 9, 28)), "2026-10-28");
+  assert.equal(dateOnly(new Date(2024, 1, 29)), "2024-02-29");
+  assert.equal(dateOnly("2026-10-28"), "2026-10-28");
+  assert.equal(dateOnly("2026-10-28T00:00:00.000Z"), "2026-10-28");
+  assert.equal(dateOnly(null), "");
+  assert.equal(dateOnly(""), "");
+});
+
+test("restore date comparison accepts future dates and blocks past dates", () => {
+  // Regression: String(pgDate).slice(0,10) produced "Wed Oct 28", which made
+  // every ISO expiry date look earlier than today.
+  const today = new Date(2026, 9, 28);
+  assert.equal(isBeforeDate("2026-10-27", today), true);
+  assert.equal(isBeforeDate("2026-10-28", today), false);
+  assert.equal(isBeforeDate("2026-11-01", today), false);
+  assert.equal(isBeforeDate(new Date(2026, 9, 27), today), true);
+  assert.equal(isBeforeDate(new Date(2026, 10, 1), today), false);
 });
