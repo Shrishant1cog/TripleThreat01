@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { validDate, validDateRange, createQrToken, hashQrToken, qrProductDetails, escapeHtml } = require("../server");
+const { validDate, validDateRange, createQrToken, hashQrToken, qrProductDetails, escapeHtml, generateDemoProduct, publicCustomerProduct } = require("../server");
 
 test("validDate accepts real ISO calendar dates", () => {
   assert.equal(validDate("2026-10-28"), true);
@@ -51,4 +51,25 @@ test("public QR product details omit unit cost and internal inventory controls",
 
 test("scan-page HTML escaping blocks product-name markup injection", () => {
   assert.equal(escapeHtml('<script "x">'), "&lt;script &quot;x&quot;&gt;");
+});
+
+
+test("random demo product templates contain plausible inventory fields", () => {
+  for (let i = 0; i < 30; i++) {
+    const p = generateDemoProduct();
+    assert.match(p.sku, /^DEMO-[A-F0-9]{6}$/);
+    assert.ok(p.stock >= 6 && p.stock <= 50);
+    assert.ok(p.reorderAt >= 3 && p.reorderAt <= 10);
+    assert.ok(p.cost > 0 && p.price >= p.cost);
+    assert.ok(p.leadTimeDays >= 1 && p.leadTimeDays <= 7);
+    assert.equal(p.isDemo, true);
+    if (p.expiry) assert.equal(validDate(p.expiry), true);
+  }
+});
+
+test("public customer catalogue DTO excludes internal unit cost and exact stock", () => {
+  const product = publicCustomerProduct({id:"p1",name:"Rice",sku:"RICE1",category:"Grocery",unit:"bag",stock:"8",selling_price:"95.50",unit_cost:"75"});
+  assert.deepEqual(product, {id:"p1",name:"Rice",sku:"RICE1",category:"Grocery",unit:"bag",price:95.5,available:true});
+  assert.equal("cost" in product, false);
+  assert.equal("stock" in product, false);
 });

@@ -58,10 +58,17 @@ const SCHEMA_SQL = [
 "CREATE TABLE IF NOT EXISTS user_sessions(sid VARCHAR NOT NULL PRIMARY KEY,sess JSON NOT NULL,expire TIMESTAMP(6) NOT NULL)",
 "CREATE INDEX IF NOT EXISTS user_sessions_expire_idx ON user_sessions(expire)",
 "CREATE TABLE IF NOT EXISTS shops(id TEXT PRIMARY KEY,name TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
+"ALTER TABLE shops ADD COLUMN IF NOT EXISTS public_slug TEXT",
+"UPDATE shops SET public_slug='store-'||SUBSTRING(REPLACE(id,'-','') FROM 1 FOR 12) WHERE public_slug IS NULL OR public_slug=''",
+"ALTER TABLE shops ALTER COLUMN public_slug SET DEFAULT ('store-' || SUBSTRING(MD5(random()::text || clock_timestamp()::text) FROM 1 FOR 10))",
+"ALTER TABLE shops ALTER COLUMN public_slug SET NOT NULL",
+"CREATE UNIQUE INDEX IF NOT EXISTS shops_public_slug_unique ON shops(public_slug)",
 "CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY,shop_id TEXT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,full_name TEXT NOT NULL,email TEXT NOT NULL UNIQUE,password_hash TEXT NOT NULL,role TEXT NOT NULL DEFAULT 'owner' CHECK(role IN ('owner','manager','staff')),created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
 "CREATE TABLE IF NOT EXISTS shop_settings(shop_id TEXT PRIMARY KEY REFERENCES shops(id) ON DELETE CASCADE,currency TEXT NOT NULL DEFAULT 'INR',coin_threshold NUMERIC(12,2) NOT NULL DEFAULT 100 CHECK(coin_threshold>=1),timezone TEXT NOT NULL DEFAULT 'Asia/Kolkata',auto_purchase_enabled BOOLEAN NOT NULL DEFAULT FALSE,max_auto_purchase_amount NUMERIC(12,2) NOT NULL DEFAULT 5000 CHECK(max_auto_purchase_amount>=0),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
 "CREATE TABLE IF NOT EXISTS products(id TEXT PRIMARY KEY,shop_id TEXT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,name TEXT NOT NULL,sku TEXT NOT NULL,category TEXT NOT NULL DEFAULT 'General retail',unit TEXT NOT NULL DEFAULT 'piece',stock NUMERIC(14,3) NOT NULL DEFAULT 0 CHECK(stock>=0),reorder_at NUMERIC(14,3) NOT NULL DEFAULT 0 CHECK(reorder_at>=0),unit_cost NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK(unit_cost>=0),selling_price NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK(selling_price>=0),lead_time_days INTEGER NOT NULL DEFAULT 3 CHECK(lead_time_days BETWEEN 0 AND 180),expiry_date DATE,is_active BOOLEAN NOT NULL DEFAULT TRUE,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
+"ALTER TABLE products ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE",
 "CREATE UNIQUE INDEX IF NOT EXISTS products_shop_sku_unique ON products(shop_id,LOWER(sku))",
+"CREATE INDEX IF NOT EXISTS products_shop_demo_idx ON products(shop_id,is_demo) WHERE is_demo=TRUE",
 "CREATE INDEX IF NOT EXISTS products_shop_active_idx ON products(shop_id,is_active)",
 "CREATE INDEX IF NOT EXISTS products_expiry_idx ON products(expiry_date) WHERE is_active=TRUE",
 "CREATE TABLE IF NOT EXISTS suppliers(id TEXT PRIMARY KEY,shop_id TEXT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,name TEXT NOT NULL,contact_person TEXT NOT NULL DEFAULT '',email TEXT NOT NULL DEFAULT '',phone TEXT NOT NULL DEFAULT '',categories TEXT NOT NULL DEFAULT '',lead_time_days INTEGER NOT NULL DEFAULT 3 CHECK(lead_time_days BETWEEN 0 AND 180),minimum_order_amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK(minimum_order_amount>=0),is_active BOOLEAN NOT NULL DEFAULT TRUE,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
@@ -81,6 +88,10 @@ const SCHEMA_SQL = [
 "CREATE INDEX IF NOT EXISTS recycle_bin_shop_expiry_idx ON recycle_bin(shop_id,expiry_date) WHERE restored_at IS NULL",
 "CREATE TABLE IF NOT EXISTS product_qr_tokens(id TEXT PRIMARY KEY,shop_id TEXT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,token_hash TEXT NOT NULL UNIQUE,expires_at TIMESTAMPTZ NOT NULL,consumed_at TIMESTAMPTZ,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
 "CREATE INDEX IF NOT EXISTS product_qr_tokens_shop_idx ON product_qr_tokens(shop_id,created_at DESC)",
+"CREATE TABLE IF NOT EXISTS product_import_qr_tokens(id TEXT PRIMARY KEY,token_hash TEXT NOT NULL UNIQUE,product_snapshot JSONB NOT NULL,expires_at TIMESTAMPTZ NOT NULL,consumed_at TIMESTAMPTZ,consumed_by_shop_id TEXT REFERENCES shops(id) ON DELETE SET NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
+"CREATE INDEX IF NOT EXISTS product_import_qr_tokens_created_idx ON product_import_qr_tokens(created_at DESC)",
+"CREATE TABLE IF NOT EXISTS customer_orders(id TEXT PRIMARY KEY,shop_id TEXT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,customer_name TEXT NOT NULL,customer_phone TEXT NOT NULL,notes TEXT NOT NULL DEFAULT '',items JSONB NOT NULL,total NUMERIC(14,2) NOT NULL,status TEXT NOT NULL DEFAULT 'requested' CHECK(status IN ('requested','accepted','declined')),created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
+"CREATE INDEX IF NOT EXISTS customer_orders_shop_idx ON customer_orders(shop_id,created_at DESC)",
 "CREATE TABLE IF NOT EXISTS notifications(id TEXT PRIMARY KEY,shop_id TEXT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,kind TEXT NOT NULL,title TEXT NOT NULL,message TEXT NOT NULL,payload JSONB NOT NULL DEFAULT '{}'::jsonb,is_read BOOLEAN NOT NULL DEFAULT FALSE,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
 "CREATE INDEX IF NOT EXISTS notifications_shop_idx ON notifications(shop_id,created_at DESC)"
 ].join(";\n")+";\n";
@@ -97,7 +108,7 @@ async function initializeDatabase(){
     client.release();
   }
 }
-function publicUser(user){return {id:user.id,name:user.name||user.full_name,email:user.email,role:user.role,shopId:user.shopId||user.shop_id,shopName:user.shopName||user.shop_name};}
+function publicUser(user){return {id:user.id,name:user.name||user.full_name,email:user.email,role:user.role,shopId:user.shopId||user.shop_id,shopName:user.shopName||user.shop_name,publicSlug:user.publicSlug||user.public_slug||""};}
 function requireAuth(req,res,next){
   if(!req.session||!req.session.user)return res.status(401).json({error:"Please sign in to continue.",code:"AUTH_REQUIRED"});
   req.user=req.session.user;next();
@@ -112,7 +123,7 @@ function ensureSameOrigin(req,res,next){
 app.use("/api",ensureSameOrigin);
 function regenerateSession(req){return new Promise((resolve,reject)=>req.session.regenerate(err=>err?reject(err):resolve()));}
 function saveSession(req){return new Promise((resolve,reject)=>req.session.save(err=>err?reject(err):resolve()));}
-function productDto(r){return {id:r.id,name:r.name,sku:r.sku,category:r.category,unit:r.unit,stock:Number(r.stock),reorderAt:Number(r.reorder_at),cost:Number(r.unit_cost),price:Number(r.selling_price),leadTimeDays:Number(r.lead_time_days),expiry:r.expiry_date||"",createdAt:r.created_at};}
+function productDto(r){return {id:r.id,name:r.name,sku:r.sku,category:r.category,unit:r.unit,stock:Number(r.stock),reorderAt:Number(r.reorder_at),cost:Number(r.unit_cost),price:Number(r.selling_price),leadTimeDays:Number(r.lead_time_days),expiry:r.expiry_date||"",isDemo:!!r.is_demo,createdAt:r.created_at};}
 function customerDto(r){return {id:r.id,name:r.name,phone:r.phone,coins:Number(r.coin_balance),spend:Number(r.lifetime_spend),orders:Number(r.order_count),createdAt:r.created_at};}
 function saleDto(r){return {id:r.id,item:r.product_name+(Number(r.quantity)===1?"":" × "+Number(r.quantity)),productId:r.product_id,customer:r.customer_name,amount:Number(r.total),quantity:Number(r.quantity),coinsEarned:Number(r.coins_earned),time:r.created_at,status:"Recorded",createdAt:r.created_at};}
 function supplierDto(r){return {id:r.id,name:r.name,contactPerson:r.contact_person,email:r.email,phone:r.phone,categories:r.categories,leadTimeDays:Number(r.lead_time_days),minimumOrderAmount:Number(r.minimum_order_amount),active:r.is_active};}
@@ -171,7 +182,7 @@ async function runExpirySweep(){
   expirySweepInFlight=expirySweep();
   try{return await expirySweepInFlight;}finally{expirySweepInFlight=null;}
 }
-app.use("/api",asyncRoute(async(req,res,next)=>{if(/^\/qr-tokens\/[^/]+\/status$/.test(req.path))return next();try{await runExpirySweep();}catch(err){console.error("Expiry sweep failed:",err.message);}next();}));
+app.use("/api",asyncRoute(async(req,res,next)=>{if(/^\/(?:qr-tokens\/[^/]+\/status|demo-product-qr(?:\/[^/]+\/status|\/consume-preview)?|customer\/catalog\/)/.test(req.path))return next();try{await runExpirySweep();}catch(err){console.error("Expiry sweep failed:",err.message);}next();}));
 
 app.get("/healthz",asyncRoute(async(_req,res)=>{await pool.query("SELECT 1");res.json({ok:true,service:"easy-gateway",database:"connected",time:new Date().toISOString()});}));
 
@@ -200,26 +211,27 @@ app.post("/api/auth/register",asyncRoute(async(req,res)=>{
   if(shopName.length<2||shopName.length>120)throw fail(400,"Enter your shop name (2–120 characters).");
   if(!emailPattern.test(email)||email.length>254)throw fail(400,"Enter a valid email address.");
   if(password.length<10||password.length>128)throw fail(400,"Choose a password between 10 and 128 characters.");
-  const passwordHash=await bcrypt.hash(password,12),client=await pool.connect(),shopId=id(),userId=id();
+  const passwordHash=await bcrypt.hash(password,12),client=await pool.connect(),shopId=id(),userId=id();let publicSlug="";
   try{
     await client.query("BEGIN");
     if((await client.query("SELECT 1 FROM users WHERE email=$1",[email])).rowCount)throw fail(409,"An account already exists for this email. Sign in instead.");
     await client.query("INSERT INTO shops(id,name) VALUES($1,$2)",[shopId,shopName]);
     await client.query("INSERT INTO users(id,shop_id,full_name,email,password_hash,role) VALUES($1,$2,$3,$4,$5,'owner')",[userId,shopId,fullName,email,passwordHash]);
     await client.query("INSERT INTO shop_settings(shop_id) VALUES($1)",[shopId]);
+    publicSlug=(await client.query("SELECT public_slug FROM shops WHERE id=$1",[shopId])).rows[0].public_slug;
     await client.query("COMMIT");
   }catch(err){await client.query("ROLLBACK").catch(()=>{});if(err.code==="23505")throw fail(409,"An account with this email already exists.");throw err;}
   finally{client.release();}
-  await regenerateSession(req);req.session.user={id:userId,shopId,name:fullName,email,role:"owner",shopName};await saveSession(req);
+  await regenerateSession(req);req.session.user={id:userId,shopId,name:fullName,email,role:"owner",shopName,publicSlug};await saveSession(req);
   res.status(201).json({user:publicUser(req.session.user)});
 }));
 app.post("/api/auth/login",asyncRoute(async(req,res)=>{
   const email=text(req.body.email).toLowerCase(),password=typeof req.body.password==="string"?req.body.password:"";
   if(!emailPattern.test(email)||!password)throw fail(400,"Enter your email and password.");
-  const result=await pool.query("SELECT u.id,u.shop_id,u.full_name,u.email,u.password_hash,u.role,s.name AS shop_name FROM users u JOIN shops s ON s.id=u.shop_id WHERE u.email=$1",[email]);
+  const result=await pool.query("SELECT u.id,u.shop_id,u.full_name,u.email,u.password_hash,u.role,s.name AS shop_name,s.public_slug FROM users u JOIN shops s ON s.id=u.shop_id WHERE u.email=$1",[email]);
   if(!result.rowCount||!(await bcrypt.compare(password,result.rows[0].password_hash)))throw fail(401,"Email or password is incorrect.");
   const row=result.rows[0];await regenerateSession(req);
-  req.session.user={id:row.id,shopId:row.shop_id,name:row.full_name,email:row.email,role:row.role,shopName:row.shop_name};
+  req.session.user={id:row.id,shopId:row.shop_id,name:row.full_name,email:row.email,role:row.role,shopName:row.shop_name,publicSlug:row.public_slug};
   await saveSession(req);res.json({user:publicUser(req.session.user)});
 }));
 app.get("/api/auth/me",(req,res)=>{if(!req.session||!req.session.user)return res.status(401).json({error:"Please sign in.",code:"AUTH_REQUIRED"});res.json({user:publicUser(req.session.user)});});
@@ -245,7 +257,7 @@ async function calculateDashboard(shopId){
 app.get("/api/dashboard",requireAuth,asyncRoute(async(req,res)=>res.json(await calculateDashboard(req.user.shopId))));
 app.get("/api/bootstrap",requireAuth,asyncRoute(async(req,res)=>{
   const shopId=req.user.shopId;
-  const [settings,products,sales,customers,suppliers,bin,notifications,orders,dashboard]=await Promise.all([
+  const [settings,products,sales,customers,suppliers,bin,notifications,orders,dashboard,shopMeta]=await Promise.all([
     getShopSettings(shopId),
     pool.query("SELECT * FROM products WHERE shop_id=$1 AND is_active=TRUE ORDER BY name",[shopId]),
     pool.query("SELECT * FROM sales WHERE shop_id=$1 ORDER BY created_at DESC LIMIT 100",[shopId]),
@@ -254,10 +266,11 @@ app.get("/api/bootstrap",requireAuth,asyncRoute(async(req,res)=>{
     pool.query("SELECT * FROM recycle_bin WHERE shop_id=$1 AND restored_at IS NULL AND deleted_at IS NULL ORDER BY recycled_at DESC",[shopId]),
     pool.query("SELECT * FROM notifications WHERE shop_id=$1 ORDER BY created_at DESC LIMIT 100",[shopId]),
     pool.query("SELECT po.*,sp.name AS supplier_name,(SELECT COUNT(*)::int FROM purchase_order_items i WHERE i.purchase_order_id=po.id) AS item_count FROM purchase_orders po LEFT JOIN suppliers sp ON sp.id=po.supplier_id WHERE po.shop_id=$1 ORDER BY po.created_at DESC LIMIT 100",[shopId]),
-    calculateDashboard(shopId)
+    calculateDashboard(shopId),
+    pool.query("SELECT public_slug FROM shops WHERE id=$1",[shopId])
   ]);
   res.json({
-    user:publicUser(req.user),settings,
+    user:{...publicUser(req.user),publicSlug:shopMeta.rows[0]?.public_slug||req.user.publicSlug||""},settings,
     products:products.rows.map(productDto),sales:sales.rows.map(saleDto),customers:customers.rows.map(customerDto),suppliers:suppliers.rows.map(supplierDto),
     recycleBin:bin.rows.map(r=>({id:r.id,productId:r.product_id,product:r.product_snapshot,stockAtExpiry:Number(r.stock_at_expiry),expiry:r.expiry_date,reason:r.reason,recycledAt:r.recycled_at})),
     notifications:notifications.rows.map(notificationDto),
@@ -531,6 +544,124 @@ async function runAutoPurchaseCycle(){
   }
 }
 
+
+function generateDemoProduct(){
+ const catalogue=[
+ {name:"Premium Basmati Rice 1 kg",category:"Grocery",unit:"bag",min:78,max:108,expiry:true},
+ {name:"Toor Dal 1 kg",category:"Grocery",unit:"bag",min:92,max:125,expiry:true},
+ {name:"Sunflower Oil 1 L",category:"Grocery",unit:"bottle",min:112,max:145,expiry:true},
+ {name:"Tata Salt 1 kg",category:"Grocery",unit:"pack",min:18,max:25,expiry:true},
+ {name:"Wheat Flour 5 kg",category:"Grocery",unit:"bag",min:190,max:240,expiry:true},
+ {name:"Filter Coffee 200 g",category:"Beverages",unit:"pack",min:98,max:138,expiry:true},
+ {name:"Bath Soap 125 g",category:"Personal care",unit:"bar",min:28,max:42,expiry:false},
+ {name:"Dishwash Liquid 500 ml",category:"Household",unit:"bottle",min:79,max:115,expiry:false},
+ {name:"Laundry Detergent 1 kg",category:"Household",unit:"pack",min:115,max:165,expiry:false},
+ {name:"Notebook A4 200 pages",category:"Stationery",unit:"piece",min:65,max:92,expiry:false},
+ {name:"Ball Pen Blue 10-pack",category:"Stationery",unit:"pack",min:48,max:75,expiry:false},
+ {name:"LED Bulb 9 W",category:"Electronics",unit:"piece",min:72,max:110,expiry:false},
+ {name:"Toothpaste 150 g",category:"Personal care",unit:"tube",min:88,max:125,expiry:true},
+ {name:"Biscuits Family Pack",category:"Snacks",unit:"pack",min:30,max:55,expiry:true},
+ {name:"Groundnut Oil 1 L",category:"Grocery",unit:"bottle",min:135,max:175,expiry:true},
+ {name:"Chickpeas 1 kg",category:"Grocery",unit:"bag",min:78,max:112,expiry:true},
+ {name:"Handwash 250 ml",category:"Personal care",unit:"bottle",min:62,max:89,expiry:true},
+ {name:"Garbage Bags 30-pack",category:"Household",unit:"pack",min:74,max:99,expiry:false}
+ ];
+ const item=catalogue[crypto.randomInt(catalogue.length)],cost=crypto.randomInt(item.min,item.max+1),price=Math.ceil(cost*(1.16+crypto.randomInt(0,18)/100));
+ const stock=crypto.randomInt(6,51),days=crypto.randomInt(21,181);
+ return {name:item.name,sku:"DEMO-"+crypto.randomBytes(3).toString("hex").toUpperCase(),category:item.category,unit:item.unit,stock,reorderAt:crypto.randomInt(3,11),cost,price,leadTimeDays:crypto.randomInt(1,8),expiry:item.expiry?new Date(Date.now()+days*86400000).toISOString().slice(0,10):null,isDemo:true,demoNote:"Synthetic demo catalogue item"};
+}
+function importLandingPage(token,demoOnly){
+ const t=escapeHtml(token);
+ const content=demoOnly
+  ? '<p>This QR was generated in Demo Mode. Open the scanner in Demo Mode to add this sample without touching a real shop.</p><p><a href="/?mode=demo&page=scanner&scanToken='+t+'">Open demo scanner</a></p>'
+  : '<p id="status">Checking sign-in and adding this sample product…</p><p><a href="/?scanToken='+t+'">Continue in Easy Gateway</a></p><script>const token='+JSON.stringify(token)+';const status=document.getElementById("status");fetch("/api/auth/me",{credentials:"same-origin"}).then(r=>{if(!r.ok)throw new Error("Please sign in first.");return fetch("/api/product-import/consume",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({token})});}).then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d.error||"This code is no longer available.");status.textContent="Added "+d.product.name+" to "+(d.shopName||"your shop")+" inventory.";}).catch(e=>{status.textContent=e.message+" Use the Continue link after signing in.";});</script>';
+ return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Import demo product · Easy Gateway</title><style>body{font:15px/1.6 system-ui,sans-serif;background:#f5f7f3;color:#26372a;margin:0;padding:22px}.card{max-width:520px;margin:6vh auto;background:#fff;border:1px solid #dfe7da;border-radius:16px;padding:28px;box-shadow:0 12px 32px #203a2910}h1{font-size:25px;margin:0 0 10px}p{color:#697765}a,.tag{color:#315d3d;font-weight:700}.tag{background:#edf4e9;padding:5px 8px;border-radius:5px;font-size:11px}</style></head><body><main class="card"><span class="tag">ONE-TIME PRODUCT IMPORT</span><h1>Demo product QR</h1>'+content+'<p>This QR contains a random demonstration product. A successful import creates the product in inventory; the code cannot be reused.</p></main></body></html>';
+}
+app.post("/api/demo-product-qr",rateLimit({windowMs:15*60*1000,limit:60,standardHeaders:"draft-8",legacyHeaders:false,message:{error:"Too many demo QR codes generated. Please try later."}}),asyncRoute(async(req,res)=>{
+ const product=generateDemoProduct(),token=createQrToken(),demoOnly=req.body?.demoMode===true,expiresAt=new Date(Date.now()+15*60*1000).toISOString();
+ await pool.query("DELETE FROM product_import_qr_tokens WHERE expires_at<NOW()-INTERVAL '1 day' OR consumed_at<NOW()-INTERVAL '1 day'");
+ await pool.query("INSERT INTO product_import_qr_tokens(id,token_hash,product_snapshot,expires_at) VALUES($1,$2,$3::jsonb,$4)",[id(),hashQrToken(token),JSON.stringify(product),expiresAt]);
+ const origin=process.env.PUBLIC_APP_URL||(req.protocol+"://"+req.get("host")),url=new URL("/import-product/"+token,origin);
+ if(demoOnly)url.searchParams.set("mode","demo");
+ const qrDataUrl=await QRCode.toDataURL(url.toString(),{errorCorrectionLevel:"M",width:360,margin:2,color:{dark:"#203a29",light:"#ffffff"}});
+ res.status(201).set("Cache-Control","no-store").json({token,product,scanUrl:url.toString(),qrDataUrl,expiresAt,demoMode:demoOnly});
+}));
+app.get("/api/demo-product-qr/:token/status",asyncRoute(async(req,res)=>{
+ const token=text(req.params.token);if(!/^[A-Za-z0-9_-]{43}$/.test(token))return res.json({consumed:true,expired:true});
+ const r=await pool.query("SELECT consumed_at,expires_at,(expires_at<=NOW()) AS expired FROM product_import_qr_tokens WHERE token_hash=$1",[hashQrToken(token)]);
+ if(!r.rowCount)return res.json({consumed:true,expired:true});
+ res.set("Cache-Control","no-store").json({consumed:!!r.rows[0].consumed_at,expired:!!r.rows[0].expired,expiresAt:r.rows[0].expires_at});
+}));
+app.post("/api/demo-product-qr/consume-preview",rateLimit({windowMs:15*60*1000,limit:60,standardHeaders:"draft-8",legacyHeaders:false}),asyncRoute(async(req,res)=>{
+ const token=text(req.body.token);if(!/^[A-Za-z0-9_-]{43}$/.test(token))throw fail(400,"QR token is invalid.");
+ const client=await pool.connect();
+ try{
+  await client.query("BEGIN");const r=await client.query("SELECT * FROM product_import_qr_tokens WHERE token_hash=$1 FOR UPDATE",[hashQrToken(token)]);
+  if(!r.rowCount||r.rows[0].consumed_at||new Date(r.rows[0].expires_at)<=new Date())throw fail(410,"This demo QR has expired or has already been scanned. Generate a fresh code.");
+  const product=r.rows[0].product_snapshot;await client.query("UPDATE product_import_qr_tokens SET consumed_at=NOW() WHERE id=$1",[r.rows[0].id]);
+  await client.query("COMMIT");res.set("Cache-Control","no-store").json({ok:true,product,demoOnly:true});
+ }catch(err){await client.query("ROLLBACK").catch(()=>{});throw err;}finally{client.release();}
+}));
+app.post("/api/product-import/consume",requireAuth,rateLimit({windowMs:15*60*1000,limit:60,standardHeaders:"draft-8",legacyHeaders:false}),asyncRoute(async(req,res)=>{
+ const token=text(req.body.token);if(!/^[A-Za-z0-9_-]{43}$/.test(token))throw fail(400,"QR token is invalid.");
+ const shopId=req.user.shopId,client=await pool.connect();
+ try{
+  await client.query("BEGIN");const t=await client.query("SELECT * FROM product_import_qr_tokens WHERE token_hash=$1 FOR UPDATE",[hashQrToken(token)]);
+  if(!t.rowCount||t.rows[0].consumed_at||new Date(t.rows[0].expires_at)<=new Date())throw fail(410,"This demo QR has expired or has already been scanned. Generate a fresh code.");
+  const p=t.rows[0].product_snapshot;let sku=text(p.sku).slice(0,90);
+  if((await client.query("SELECT 1 FROM products WHERE shop_id=$1 AND LOWER(sku)=LOWER($2)",[shopId,sku])).rowCount)sku=sku+"-"+crypto.randomBytes(2).toString("hex").toUpperCase();
+  const product=await client.query("INSERT INTO products(id,shop_id,name,sku,category,unit,stock,reorder_at,unit_cost,selling_price,lead_time_days,expiry_date,is_demo) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,TRUE) RETURNING *",[id(),shopId,p.name,sku,p.category,p.unit,p.stock,p.reorderAt,p.cost,p.price,p.leadTimeDays,p.expiry||null]);
+  await client.query("UPDATE product_import_qr_tokens SET consumed_at=NOW(),consumed_by_shop_id=$2 WHERE id=$1",[t.rows[0].id,shopId]);
+  await notify(shopId,"demo_product_added","Demo product added to inventory",p.name+" was added from a one-time demo QR code.",{productId:product.rows[0].id,source:"qr_demo"});
+  await client.query("COMMIT");res.status(201).set("Cache-Control","no-store").json({ok:true,product:productDto(product.rows[0]),shopName:req.user.shopName});
+ }catch(err){await client.query("ROLLBACK").catch(()=>{});throw err;}finally{client.release();}
+}));
+app.get("/import-product/:token",asyncRoute(async(req,res)=>{
+ const token=text(req.params.token);if(!/^[A-Za-z0-9_-]{43}$/.test(token))return res.status(410).type("html").send(importLandingPage("",true));
+ res.set("Cache-Control","no-store, max-age=0").type("html").send(importLandingPage(token,req.query.mode==="demo"));
+}));
+function publicCustomerProduct(p){return {id:p.id,name:p.name,sku:p.sku,category:p.category,unit:p.unit,price:Number(p.selling_price),available:Number(p.stock)>0};}
+app.get("/api/customer/catalog/:slug",asyncRoute(async(req,res)=>{
+ const shop=await pool.query("SELECT id,name,public_slug FROM shops WHERE public_slug=$1",[text(req.params.slug)]);
+ if(!shop.rowCount)throw fail(404,"This customer store link is not available.");
+ const rows=await pool.query("SELECT id,name,sku,category,unit,stock,selling_price FROM products WHERE shop_id=$1 AND is_active=TRUE ORDER BY category,name",[shop.rows[0].id]);
+ res.set("Cache-Control","no-store").json({shop:{name:shop.rows[0].name,slug:shop.rows[0].public_slug},products:rows.rows.map(publicCustomerProduct)});
+}));
+app.post("/api/customer/orders",rateLimit({windowMs:60*60*1000,limit:12,standardHeaders:"draft-8",legacyHeaders:false,message:{error:"Too many order requests from this connection. Please try again later."}}),asyncRoute(async(req,res)=>{
+ const slug=text(req.body.shopSlug),name=text(req.body.name),phone=text(req.body.phone),notes=text(req.body.notes),requested=Array.isArray(req.body.items)?req.body.items:[];
+ if(name.length<2||name.length>100)throw fail(400,"Enter your name (2–100 characters).");
+ if(!/^[+0-9() .-]{7,24}$/.test(phone)||phone.replace(/\D/g,"").length<7)throw fail(400,"Enter a valid contact phone number.");
+ if(notes.length>500||!requested.length||requested.length>30)throw fail(400,"Choose at least one product and keep notes under 500 characters.");
+ const client=await pool.connect();
+ try{
+  await client.query("BEGIN");const shop=await client.query("SELECT id,name FROM shops WHERE public_slug=$1 FOR SHARE",[slug]);
+  if(!shop.rowCount)throw fail(404,"This customer store link is not available.");
+  let total=0;const items=[];
+  for(const item of requested){
+   const productId=text(item.productId),quantity=Number(item.quantity);
+   if(!productId||!Number.isInteger(quantity)||quantity<1||quantity>100)throw fail(400,"Order quantity must be a whole number between 1 and 100.");
+   const p=await client.query("SELECT id,name,sku,unit,stock,selling_price FROM products WHERE id=$1 AND shop_id=$2 AND is_active=TRUE FOR SHARE",[productId,shop.rows[0].id]);
+   if(!p.rowCount)throw fail(409,"One product is no longer available. Refresh the catalogue.");
+   if(Number(p.rows[0].stock)<quantity)throw fail(409,"Not enough stock is currently available for "+p.rows[0].name+".");
+   const unitPrice=Number(p.rows[0].selling_price),lineTotal=Math.round(unitPrice*quantity*100)/100;total+=lineTotal;
+   items.push({productId:p.rows[0].id,name:p.rows[0].name,sku:p.rows[0].sku,unit:p.rows[0].unit,quantity,unitPrice,lineTotal});
+  }
+  const orderId=id();await client.query("INSERT INTO customer_orders(id,shop_id,customer_name,customer_phone,notes,items,total,status) VALUES($1,$2,$3,$4,$5,$6::jsonb,$7,'requested')",[orderId,shop.rows[0].id,name,phone,notes,JSON.stringify(items),Math.round(total*100)/100]);
+  await client.query("COMMIT");res.status(201).set("Cache-Control","no-store").json({order:{id:orderId,shopName:shop.rows[0].name,name,phone,total:Math.round(total*100)/100,status:"requested",items}});
+ }catch(err){await client.query("ROLLBACK").catch(()=>{});throw err;}finally{client.release();}
+}));
+app.get("/api/customer-orders",requireAuth,asyncRoute(async(req,res)=>{
+ const r=await pool.query("SELECT * FROM customer_orders WHERE shop_id=$1 ORDER BY created_at DESC LIMIT 200",[req.user.shopId]);
+ res.json({orders:r.rows.map(x=>({id:x.id,name:x.customer_name,phone:x.customer_phone,notes:x.notes,items:x.items,total:Number(x.total),status:x.status,createdAt:x.created_at}))});
+}));
+app.put("/api/customer-orders/:id/status",requireAuth,asyncRoute(async(req,res)=>{
+ const status=text(req.body.status);if(!["accepted","declined"].includes(status))throw fail(400,"Choose accepted or declined.");
+ const r=await pool.query("UPDATE customer_orders SET status=$3,updated_at=NOW() WHERE id=$1 AND shop_id=$2 AND status='requested' RETURNING id,status",[req.params.id,req.user.shopId,status]);
+ if(!r.rowCount)throw fail(409,"Order request is no longer pending.");
+ await notify(req.user.shopId,"customer_order","Customer order request updated","Order "+r.rows[0].id.slice(0,8)+" was marked "+status+".",{orderId:r.rows[0].id,status});
+ res.json({ok:true,status:r.rows[0].status});
+}));
+
 app.use("/api",(req,res)=>res.status(404).json({error:"API endpoint not found."}));
 app.use((err,req,res,next)=>{
   if(res.headersSent)return next(err);
@@ -553,4 +684,4 @@ async function shutdown(signal){
 process.on("SIGTERM",()=>shutdown("SIGTERM"));
 process.on("SIGINT",()=>shutdown("SIGINT"));
 if(require.main===module)start().catch(err=>{console.error("Easy Gateway failed to start:",err.message);process.exit(1);});
-module.exports={app,initializeDatabase,runExpirySweep,runAutoPurchaseCycle,calculateDashboard,getPurchasePlan,validDate,validDateRange,createQrToken,hashQrToken,qrProductDetails,escapeHtml,closeDatabase:()=>pool.end()};
+module.exports={app,initializeDatabase,runExpirySweep,runAutoPurchaseCycle,calculateDashboard,getPurchasePlan,validDate,validDateRange,createQrToken,hashQrToken,qrProductDetails,escapeHtml,generateDemoProduct,publicCustomerProduct,closeDatabase:()=>pool.end()};
