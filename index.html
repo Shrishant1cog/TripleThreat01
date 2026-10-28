@@ -87,7 +87,7 @@
   const lowStock=()=>products.filter(p=>p.stock<=p.reorderAt);
   const suggested=p=>Math.max(0,p.reorderAt*2-p.stock);
   function localISO(date){const d=date||new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
-  function expiryDateValue(value){if(!value)return "";if(value==="Today")return localISO();if(value==="Tomorrow"){const d=new Date();d.setDate(d.getDate()+1);return localISO(d)}const s=String(value);return s.length===10&&s[4]==="-"&&s[7]==="-"?s:""}
+  function expiryDateValue(value){if(!value)return "";if(value==="Today")return localISO();if(value==="Tomorrow"){const d=new Date();d.setDate(d.getDate()+1);return localISO(d)}const s=String(value);if(s.length!==10||s[4]!=="-"||s[7]!=="-")return "";const parts=s.split("-").map(Number),d=new Date(parts[0],parts[1]-1,parts[2]);return d.getFullYear()===parts[0]&&d.getMonth()===parts[1]-1&&d.getDate()===parts[2]?s:""}
   function expiryDateLabel(value){const iso=expiryDateValue(value);if(!iso)return value||"Not set";const d=new Date(iso+"T00:00:00");return d.toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"})}
   function daysToExpiry(value){const iso=expiryDateValue(value);if(!iso)return null;const parts=iso.split("-").map(Number),target=new Date(parts[0],parts[1]-1,parts[2]),now=new Date();now.setHours(0,0,0,0);return Math.round((target-now)/86400000)}
   function expiringSoon(){return products.filter(p=>{const d=daysToExpiry(p.expiry);return d!==null&&d>=0&&d<=7}).sort((a,b)=>daysToExpiry(a.expiry)-daysToExpiry(b.expiry))}
