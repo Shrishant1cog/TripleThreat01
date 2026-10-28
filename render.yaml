@@ -19,30 +19,11 @@ services:
       - key: SESSION_SECRET
         generateValue: true
 
-  - type: cron
-    name: easy-gateway-maintenance
-    runtime: node
-    plan: 0.5c-512mb
-    region: singapore
-    branch: main
-    schedule: "*/15 * * * *"
-    buildCommand: npm install
-    startCommand: node scripts/maintenance.js
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: DATABASE_URL
-        fromDatabase:
-          name: easy-gateway-db
-          property: connectionString
-      - key: SESSION_SECRET
-        generateValue: true
-
 databases:
   - name: easy-gateway-db
-    databaseName: easy_gateway
-    user: easy_gateway_user
-    plan: 0.1c-256mb
+    databaseName: easy_gateway_db
+    user: easy_gateway_db_user
+    plan: free
     region: singapore
     postgresMajorVersion: "18"
     ipAllowList: []
