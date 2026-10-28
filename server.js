@@ -203,6 +203,7 @@ app.get("/scan/:token",asyncRoute(async(req,res)=>{
   }catch(err){await client.query("ROLLBACK").catch(()=>{});throw err;}
   finally{client.release();}
 }));
+app.get("/shop/:slug",(_req,res)=>res.sendFile(path.join(__dirname,"index.html")));
 app.get("/",(_req,res)=>res.sendFile(path.join(__dirname,"index.html")));
 app.get("/favicon.ico",(_req,res)=>res.status(204).end());
 
@@ -298,6 +299,12 @@ app.post("/api/products",requireAuth,asyncRoute(async(req,res)=>{
     if(!active.rowCount)return res.status(201).json({recycledImmediately:true,message:"The expiry date has passed; the item was moved to the recycle bin."});
     res.status(201).json({product:productDto(active.rows[0])});
   }catch(err){if(err.code==="23505")throw fail(409,"That SKU already exists in this shop.");throw err;}
+}));
+app.delete("/api/products/:id/demo",requireAuth,asyncRoute(async(req,res)=>{
+  const removed=await pool.query("DELETE FROM products WHERE id=$1 AND shop_id=$2 AND is_demo=TRUE RETURNING name",[req.params.id,req.user.shopId]);
+  if(!removed.rowCount)throw fail(404,"QR sample not found. Only products imported from a sample QR can be removed this way.");
+  await notify(req.user.shopId,"demo_product_removed","QR sample removed",removed.rows[0].name+" was removed after the demonstration.",{productId:req.params.id});
+  res.json({ok:true,name:removed.rows[0].name});
 }));
 app.put("/api/products/:id",requireAuth,asyncRoute(async(req,res)=>{
   const x={name:text(req.body.name),sku:text(req.body.sku),category:text(req.body.category)||"General retail",unit:text(req.body.unit)||"piece",stock:Number(req.body.stock),reorderAt:Number(req.body.reorderAt),cost:Number(req.body.cost),price:Number(req.body.price),lead:Number(req.body.leadTimeDays??3),expiry:text(req.body.expiry)||null};
@@ -572,6 +579,14 @@ function generateDemoProduct(){
  return {name:item.name,sku:"DEMO-"+crypto.randomBytes(3).toString("hex").toUpperCase(),category:item.category,unit:item.unit,stock,reorderAt:crypto.randomInt(3,11),cost,price,leadTimeDays:crypto.randomInt(1,8),expiry:item.expiry?new Date(Date.now()+days*86400000).toISOString().slice(0,10):null,isDemo:true,demoNote:"Synthetic demo catalogue item"};
 }
 function importLandingPage(token,demoOnly){
+ const t=String(token||"");
+ if(!/^[A-Za-z0-9_-]{43}$/.test(t))return '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>QR code unavailable · Easy Gateway</title><style>body{font:16px/1.6 system-ui,sans-serif;background:#f5f7f3;color:#26372a;padding:22px}.card{max-width:520px;margin:7vh auto;background:#fff;border:1px solid #dfe7da;border-radius:16px;padding:28px}</style><main class="card"><h1>QR code unavailable</h1><p>This code is invalid. Generate a fresh sample product QR.</p><a href="/">Open Easy Gateway</a></main></html>';
+ const demoUrl='/?mode=demo&page=scanner&scanToken='+encodeURIComponent(t),liveUrl='/?scanToken='+encodeURIComponent(t);
+ const content=demoOnly
+  ? '<p>This is a sandbox-only sample. The product will be added to local Demo Mode data, never to a retailer database.</p><p id="status">Opening Demo Mode scanner…</p><p><a href="'+demoUrl+'">Continue to demo inventory</a></p><script>window.location.replace('+JSON.stringify(demoUrl)+');</script>'
+  : '<p id="status">Checking sign-in and adding this sample product…</p><p><a href="'+liveUrl+'">Continue in Easy Gateway</a></p><script>const token='+JSON.stringify(t)+';const status=document.getElementById("status");fetch("/api/auth/me",{credentials:"same-origin"}).then(async r=>{if(!r.ok){window.location.replace("/?scanToken="+encodeURIComponent(token));return null;}return fetch("/api/product-import/consume",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({token})});}).then(async r=>{if(!r)return;const d=await r.json();if(!r.ok)throw new Error(d.error||"This code is no longer available.");status.textContent="Added "+d.product.name+" to "+(d.shopName||"your shop")+" inventory. It is marked as a removable QR sample.";}).catch(e=>{status.textContent=e.message+" If required, sign in through Easy Gateway and retry with a fresh QR.";});</script>';
+ return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Import sample product · Easy Gateway</title><style>body{font:15px/1.6 system-ui,sans-serif;background:#f5f7f3;color:#26372a;margin:0;padding:22px}.card{max-width:520px;margin:6vh auto;background:#fff;border:1px solid #dfe7da;border-radius:16px;padding:28px;box-shadow:0 12px 32px #203a2910}h1{font-size:25px;margin:0 0 10px}p{color:#697765}a,.tag{color:#315d3d;font-weight:700}.tag{background:#edf4e9;padding:5px 8px;border-radius:5px;font-size:11px}</style></head><body><main class="card"><span class="tag">ONE-TIME PRODUCT IMPORT</span><h1>Sample product QR</h1>'+content+'<p>This code expires after 15 minutes or one successful scan. Live-mode imports are tagged as QR samples so the retailer can remove them after a demonstration.</p></main></body></html>';
+}
  const t=escapeHtml(token);
  const content=demoOnly
   ? '<p>This QR was generated in Demo Mode. Open the scanner in Demo Mode to add this sample without touching a real shop.</p><p><a href="/?mode=demo&page=scanner&scanToken='+t+'">Open demo scanner</a></p>'
