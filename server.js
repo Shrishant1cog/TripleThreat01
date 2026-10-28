@@ -457,7 +457,6 @@ async function start(){
   await runExpirySweep().catch(err=>console.error("Initial expiry sweep failed:",err.message));
   server=app.listen(PORT,"0.0.0.0",()=>console.log("Easy Gateway listening on port "+PORT));
   setInterval(()=>runExpirySweep().catch(err=>console.error("Expiry sweep failed:",err.message)),60000).unref();
-  setInterval(()=>runAutoPurchaseCycle().catch(err=>console.error("Auto-purchase cycle failed:",err.message)),15*60000).unref();
 }
 async function shutdown(signal){
   console.log("Received "+signal+"; shutting down gracefully.");
@@ -467,4 +466,4 @@ async function shutdown(signal){
 process.on("SIGTERM",()=>shutdown("SIGTERM"));
 process.on("SIGINT",()=>shutdown("SIGINT"));
 if(require.main===module)start().catch(err=>{console.error("Easy Gateway failed to start:",err.message);process.exit(1);});
-module.exports={app,initializeDatabase,runExpirySweep,calculateDashboard,getPurchasePlan,validDate};
+module.exports={app,initializeDatabase,runExpirySweep,runAutoPurchaseCycle,calculateDashboard,getPurchasePlan,validDate,closeDatabase:()=>pool.end()};
