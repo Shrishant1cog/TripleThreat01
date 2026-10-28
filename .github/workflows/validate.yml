@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  validate-static-site:
+  validate-full-stack:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -21,30 +21,43 @@ jobs:
         with:
           node-version: 24
 
-      - name: Extract inline JavaScript
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Extract browser JavaScript and verify feature markers
         run: |
           python - <<'PY'
           import re
           from pathlib import Path
 
-          source = Path("index.html").read_text(encoding="utf-8")
-          scripts = re.findall(r"<script>(.*?)</script>", source, re.DOTALL)
+          html = Path("index.html").read_text(encoding="utf-8")
+          server = Path("server.js").read_text(encoding="utf-8")
+          scripts = re.findall(r"<script>(.*?)</script>", html, re.DOTALL)
           if not scripts:
-              raise SystemExit("No inline script found in index.html")
+              raise SystemExit("No inline browser script found in index.html")
           Path("/tmp/easy-gateway-inline.js").write_text("\n".join(scripts), encoding="utf-8")
 
+          combined = html + "\n" + server
           required = [
               'data-page="expiry"',
               'data-action="restore-expired"',
-              "processExpiredProducts",
-              "notifyExpiredProduct",
-              "save-coin-rule",
+              "/api/auth/register",
+              "loyalty_transactions",
+              "runExpirySweep",
+              "runAutoPurchaseCycle",
+              "recycle_bin",
           ]
-          missing = [item for item in required if item not in source]
+          missing = [item for item in required if item not in combined]
           if missing:
-              raise SystemExit("Missing required feature markers: " + ", ".join(missing))
-          print("Required expiry and loyalty features are present.")
+              raise SystemExit("Missing full-stack feature markers: " + ", ".join(missing))
+          print("Full-stack feature markers are present.")
           PY
 
-      - name: Check JavaScript syntax
+      - name: Check backend JavaScript syntax
+        run: npm run check
+
+      - name: Check browser JavaScript syntax
         run: node --check /tmp/easy-gateway-inline.js
+
+      - name: Run unit tests
+        run: npm test
