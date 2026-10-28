@@ -52,6 +52,13 @@ jobs:
               "/scan/:token",
               "Expiry waste report",
               "Product QR generator",
+              "Demo Mode",
+              "easyGatewayPendingScanToken",
+              "Customer order requests",
+              "customerCheckoutForm",
+              "/api/demo-product-qr",
+              "/api/customer/orders",
+              "/shop/:slug",
           ]
           missing = [item for item in required if item not in combined]
           if missing:

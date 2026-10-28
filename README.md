@@ -61,12 +61,18 @@ The repository contains a browser-based web app, an Express API, PostgreSQL-back
 - Values are estimates of inventory cost written off, not missed revenue or guaranteed lost profit. A product with zero remaining stock contributes zero cost loss.
 - Export the monthly breakdown to CSV. The report uses existing real records and does not fabricate samples.
 
-### Single-use product QR codes
-- Generate a random QR code for any active product in the signed-in shop.
-- Each code opens a product-details page and can be consumed once; codes expire after two minutes. The generator detects a scan and automatically issues a fresh QR.
-- The QR scan page shows shop, product name, SKU, category, available stock, selling price, and expiry date. It never exposes unit cost or private purchasing settings.
-- Tokens are generated with cryptographically secure randomness, stored as SHA-256 hashes, and scoped to the shop. Product lookup is constrained to the owning shop.
-- The QR generator is a one-time product-detail lookup flow, not a retail checkout or payment barcode.
+### Random sample-product QR import
+- Generate a fictional product with random demo SKU, quantity, prices, category, lead time, and optional expiry date.
+- Scan the QR from a phone camera to import the sample into the currently signed-in retailer's inventory. If the phone isn't signed in, Easy Gateway asks the retailer to sign in and completes the import afterward.
+- Imported items are marked **QR SAMPLE** and can be removed after the demonstration. SKU collisions are handled without overwriting existing products.
+- Codes expire after 15 minutes or one successful import. Tokens are cryptographically random; the database stores token hashes. Live QR tokens cannot be used as demo-only tokens, or vice versa.
+- Demo Mode uses local browser session data; scanning a demo-only QR adds the product to the demo sandbox, not the live database.
+
+### Customer-facing shop
+- Each shop gets a public catalogue URL at \`/shop/<shop-slug>\`.
+- Customers can search the catalogue, add products to a basket, and send an order request with their name, phone number, and optional notes.
+- Retailers review incoming requests in **Customer order requests** and can accept or decline them.
+- This is an order-request flow only: no payment is collected, stock is not reserved, and retailers must confirm availability before fulfilment. The customer-facing catalogue does not expose unit cost or exact stock quantities.
 
 ### Daily sales reporting
 - Show actual recorded sales by calendar day.
@@ -205,7 +211,7 @@ See [the workflow](.github/workflows/validate.yml).
 
 - No Android or iOS application yet; mobile apps should use the same API.
 - No supplier-side API, payment gateway, live POS, SAP, accounting, or tax integration.
-- No CSV import wizard, camera scanning directly inside Easy Gateway, OCR invoice capture, or customer-facing online storefront. Product QR links can be opened by a phone camera and scanned once.
+- No CSV import wizard, camera scanning directly inside Easy Gateway, OCR invoice capture, payments, or POS integration. The sample QR import flow is intended for demonstration; verify product values before treating them as operational stock.
 - No lot/batch-level expiry model or product recall workflow.
 - Loyalty refunds, coin redemption, expiry, and reversal policies need ledger flows before launch.
 - No email/SMS push provider; current notifications are in-app.
