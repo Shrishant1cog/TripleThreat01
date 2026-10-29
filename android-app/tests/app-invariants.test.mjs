@@ -12,6 +12,7 @@ const manifest = read('android/app/src/main/AndroidManifest.xml');
 const releaseNetwork = read('android/app/src/main/res/xml/network_security_config.xml');
 const debugNetwork = read('android/app/src/debug/res/xml/network_security_config.xml');
 const gradle = read('android/app/build.gradle');
+const buildScript = read('scripts/build-android.mjs');
 const plugin = read('android/app/src/main/java/com/easygateway/app/EasyGatewayNativePlugin.java');
 const mainActivity = read('android/app/src/main/java/com/easygateway/app/MainActivity.java');
 const pkg = JSON.parse(read('package.json'));
@@ -116,6 +117,20 @@ test('release builds block cleartext while debug builds allow local development'
   assert.match(gradle, /easyGateway\.allowCleartext/);
   assert.match(gradle, /buildConfigField "String", "API_BASE_URL"/);
   assert.match(plugin, /"http"\.equals\(protocol\) && BuildConfig\.DEBUG && BuildConfig\.ALLOW_CLEARTEXT/);
+});
+
+test('the LAN build reuses PUBLIC_APP_URL instead of drifting from the website', () => {
+  assert.match(buildScript, /PUBLIC_APP_URL/);
+  assert.match(buildScript, /lanBaseUrlFromPublicAppUrl/);
+  assert.equal(pkg.scripts['android:build:lan'], 'node scripts/build-android.mjs --env lan');
+  assert.match(html, /API base URL/);
+  assert.match(html, /Environment/);
+  assert.match(html, /App version/);
+});
+
+test('scanned links resolve custom schemes and surface config failures', () => {
+  assert.match(html, /could not read its server configuration/);
+  assert.match(html, /new URL\("\/scan\/"\+parsed\.token,nativeApiOrigin\(\)\)/);
 });
 
 test('deep links cover the public store, import and custom scheme', () => {

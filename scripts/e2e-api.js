@@ -11,6 +11,7 @@
  * Requirements: the server must already be running and .env must contain the
  * same DATABASE_URL the server uses. The script never touches existing shops.
  */
+const crypto = require("crypto");
 const path = require("path");
 const { Pool } = require("pg");
 
@@ -329,6 +330,20 @@ async function expectStatus(name, status, want) {
     await expectStatus("replayed live QR is rejected", replayImport.status, 410);
     const malformedToken = await request("POST", "/api/product-import/consume", { token: "short" });
     await expectStatus("malformed QR token is rejected", malformedToken.status, 400);
+    const expiredQr = await request("POST", "/api/demo-product-qr", {});
+    await expectStatus("an expiry-test QR is issued", expiredQr.status, 201);
+    await pool.query("UPDATE product_import_qr_tokens SET expires_at=NOW()-INTERVAL '1 minute' WHERE token_hash=$1", [
+      crypto.createHash("sha256").update(expiredQr.body.token).digest("hex")
+    ]);
+    const expiredBefore = await pool.query("SELECT COUNT(*)::int AS n FROM products WHERE shop_id=$1 AND name=$2", [shopId, expiredQr.body.product.name]);
+    const expiredImport = await request("POST", "/api/product-import/consume", { token: expiredQr.body.token });
+    await expectStatus("expired live QR is rejected", expiredImport.status, 410);
+    const expiredAfter = await pool.query("SELECT COUNT(*)::int AS n FROM products WHERE shop_id=$1 AND name=$2", [shopId, expiredQr.body.product.name]);
+    check(
+      "expired live QR creates no inventory",
+      expiredAfter.rows[0].n === expiredBefore.rows[0].n,
+      `${expiredBefore.rows[0].n} -> ${expiredAfter.rows[0].n}`
+    );
 
     const demoImportQr = await request("POST", "/api/demo-product-qr", { demoMode: true });
     await expectStatus("demo import QR is issued", demoImportQr.status, 201);

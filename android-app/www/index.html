@@ -265,7 +265,10 @@ async function enterDemoModeForQr(){
 async function handleScannedValue(raw,options){
  // A cold-start deep link arrives before any API call, so nativeConfig is still
  // null. Load it first; otherwise a valid LAN HTTP QR is rejected as insecure.
- if(nativeBridge&&!nativeConfig){try{await ensureNativeConfig();}catch(_){}}
+ if(nativeBridge&&!nativeConfig){
+  try{await ensureNativeConfig();}
+  catch(_){toast("This app could not read its server configuration. Reinstall the correct Easy Gateway build.");return false;}
+ }
  const parsed=parseQrValue(raw),opts=options||{};
  if(parsed.error){
   if(window.EGFeatures&&typeof window.EGFeatures.handleScannedCode==="function"&&window.EGFeatures.handleScannedCode(raw))return true;
@@ -275,7 +278,12 @@ async function handleScannedValue(raw,options){
   if(opts.fromLaunch){customerView=true;customerStoreSlug=parsed.slug;return true;}
   await enterCustomerStore(parsed.slug);return true;
  }
- if(parsed.kind==="scan"){await openInAppBrowser(parsed.url);return true;}
+ if(parsed.kind==="scan"){
+  // Custom-scheme scan links cannot be opened by a browser; resolve them
+  // against the configured API origin instead of looping back into the app.
+  const target=/^https?:/i.test(parsed.url)?parsed.url:new URL("/scan/"+parsed.token,nativeApiOrigin()).toString();
+  await openInAppBrowser(target);return true;
+ }
  if(parsed.kind==="import"){
   if(parsed.demoOnly===false&&demoMode){
    toast("This is a live import QR. Demo Mode is on, so nothing was changed. Turn Demo Mode off and sign in to import it.");

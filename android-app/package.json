@@ -15,7 +15,7 @@
     "android:build": "node scripts/build-android.mjs",
     "android:build:prod": "node scripts/build-android.mjs --env production",
     "android:build:emulator": "node scripts/build-android.mjs --env emulator",
-    "android:build:lan": "node scripts/build-android.mjs --env lan --lan-ip auto",
+    "android:build:lan": "node scripts/build-android.mjs --env lan",
     "android:build:release": "node scripts/build-android.mjs --env production --release",
     "android:open": "npx cap open android",
     "android:install": "adb install -r dist/EasyGateway-production-debug.apk",

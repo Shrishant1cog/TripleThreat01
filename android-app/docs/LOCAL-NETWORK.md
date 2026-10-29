@@ -187,11 +187,22 @@ npm install
 npm run android:build:lan
 ```
 
-`--lan-ip auto` selects a private Wi-Fi address and prints it. To pin the address:
+`npm run android:build:lan` reads `PUBLIC_APP_URL` from the backend `.env`, so
+the APK trusts exactly the origin the website prints. To let the build detect a
+private Wi-Fi address instead:
+
+```powershell
+node scripts/build-android.mjs --env lan --lan-ip auto
+```
+
+To pin a different address explicitly:
 
 ```powershell
 node scripts/build-android.mjs --env lan --lan-ip 192.168.1.20 --port 3000
 ```
+
+If `PUBLIC_APP_URL` names an address that is no longer assigned to this PC, the
+build stops with an error. Update `.env`, restart the backend and rebuild.
 
 Output:
 

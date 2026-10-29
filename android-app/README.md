@@ -95,17 +95,27 @@ Uses `http://10.0.2.2:3000`, which maps to the host machine. `localhost` inside 
 
 ```powershell
 npm run android:build:lan
-# equivalent to:
-node scripts/build-android.mjs --env lan --lan-ip auto --port 3000
 ```
 
-To pin the address:
+This reads `PUBLIC_APP_URL` from the backend `.env` (for example
+`http://192.168.1.20:3000`) and embeds the exact same origin in the APK. The QR
+links printed by the website and the origin trusted by the app therefore cannot
+drift apart.
+
+To override the address explicitly for one build:
 
 ```powershell
 node scripts/build-android.mjs --env lan --lan-ip 192.168.1.20 --port 3000
 ```
 
-Replace `192.168.1.20` with the development PC's private address. The phone and PC must share the network, and the backend must be reachable on TCP 3000. `localhost`, public HTTP hosts and credentials in the URL are rejected.
+Replace `192.168.1.20` with the development PC's private address. The npm
+script requires `PUBLIC_APP_URL`; if you prefer detection instead, run
+`node scripts/build-android.mjs --env lan --lan-ip auto` explicitly. The phone
+and PC must share the network, and the backend must be reachable on TCP 3000.
+`localhost`, public HTTP hosts and credentials in the URL are rejected. If the
+PC's LAN address changes, update `PUBLIC_APP_URL` in `.env`, restart the
+backend, then rebuild; the build fails with an explicit message instead of
+embedding a dead address.
 
 See [`docs/LOCAL-NETWORK.md`](docs/LOCAL-NETWORK.md) for the full local setup, firewall and production-switch procedure.
 

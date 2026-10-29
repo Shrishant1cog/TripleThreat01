@@ -85,6 +85,61 @@ test("QR origins prefer PUBLIC_APP_URL and fall back to the request host", () =>
   assert.equal(resolvePublicOrigin(request, { PUBLIC_APP_URL: "http://192.168.1.20:3000/" }), "http://192.168.1.20:3000");
   assert.equal(resolvePublicOrigin(request, { PUBLIC_APP_URL: "https://shop.example.test" }), "https://shop.example.test");
   assert.throws(() => resolvePublicOrigin(request, { PUBLIC_APP_URL: "not a url" }), /valid URL/i);
+  assert.throws(() => resolvePublicOrigin(request, { PUBLIC_APP_URL: "ftp://shop.example.test" }), /http.*https/i);
+});
+
+test("production QR origins are always HTTPS and never fall back to LAN HTTP", () => {
+  const httpRequest = { protocol: "http", get: name => name === "host" ? "192.168.1.20:3000" : "" };
+  const httpsRequest = { protocol: "https", get: name => name === "host" ? "shop.example.test" : "" };
+  assert.throws(
+    () => resolvePublicOrigin(httpRequest, { NODE_ENV: "production" }),
+    /Production QR links require PUBLIC_APP_URL/i
+  );
+  assert.throws(
+    () => resolvePublicOrigin(httpsRequest, { NODE_ENV: "production" }),
+    /Production QR links require PUBLIC_APP_URL/i
+  );
+  assert.throws(
+    () => resolvePublicOrigin(httpsRequest, { NODE_ENV: "production", PUBLIC_APP_URL: "http://192.168.1.20:3000" }),
+    /Production QR links must use HTTPS/i
+  );
+  assert.equal(
+    resolvePublicOrigin(httpsRequest, { NODE_ENV: "production", PUBLIC_APP_URL: "https://shop.example.test" }),
+    "https://shop.example.test"
+  );
+  // Node environments are case-insensitive in practice; a typo must not disable
+  // the production HTTPS guard.
+  for (const value of ["Production", " production ", "PRODUCTION"]) {
+    assert.throws(
+      () => resolvePublicOrigin(httpRequest, { NODE_ENV: value, PUBLIC_APP_URL: "http://192.168.1.20:3000" }),
+      /Production QR links must use HTTPS/i,
+      value
+    );
+  }
+  assert.equal(
+    resolvePublicOrigin(httpRequest, { NODE_ENV: "development" }),
+    "http://192.168.1.20:3000"
+  );
+});
+
+test("PUBLIC_APP_URL must be a bare origin without credentials", () => {
+  const request = { protocol: "http", get: name => name === "host" ? "192.168.1.20:3000" : "" };
+  assert.throws(
+    () => resolvePublicOrigin(request, { PUBLIC_APP_URL: "https://user:secret@shop.example.test" }),
+    /credentials/i
+  );
+  assert.throws(
+    () => resolvePublicOrigin(request, { PUBLIC_APP_URL: "https://shop.example.test/app" }),
+    /origin only/i
+  );
+  assert.throws(
+    () => resolvePublicOrigin(request, { PUBLIC_APP_URL: "https://shop.example.test?x=1" }),
+    /origin only/i
+  );
+  assert.equal(
+    resolvePublicOrigin(request, { PUBLIC_APP_URL: "https://shop.example.test/" }),
+    "https://shop.example.test"
+  );
 });
 
 test("public customer catalogue DTO excludes internal unit cost and exact stock", () => {

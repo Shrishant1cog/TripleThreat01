@@ -18,7 +18,7 @@ import { spawnSync } from 'node:child_process';
 import { networkInterfaces } from 'node:os';
 import { dirname, join, delimiter } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { findPrivateLanIp, resolveApiBaseUrl } from '../config/environments.mjs';
+import { findPrivateLanIp, isCurrentMachineAddress, lanBaseUrlFromPublicAppUrl, resolveApiBaseUrl } from '../config/environments.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -29,6 +29,27 @@ function option(name, fallback = '') {
   const index = args.indexOf(`--${name}`);
   if (index >= 0 && args[index + 1] && !args[index + 1].startsWith('--')) return args[index + 1];
   return fallback;
+}
+
+/**
+ * Reads one key from the web/backend .env without adding a runtime dependency.
+ * Only used for LOCAL builds so the APK trusts the same origin the website prints.
+ */
+function readEnvValue(file, key) {
+  if (!existsSync(file)) return '';
+  for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
+    const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+    if (!match || match[1] !== key) continue;
+    let value = match[2].trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    } else {
+      // Match dotenv: an unquoted ` # comment` starts a comment.
+      value = value.replace(/\s+#.*$/, '').trim();
+    }
+    return value;
+  }
+  return '';
 }
 
 function run(command, commandArgs, options = {}) {
@@ -92,6 +113,27 @@ const release = args.includes('--release');
 const skipSync = args.includes('--skip-sync');
 let lanIp = option('lan-ip', process.env.EASY_GATEWAY_LAN_IP || '');
 const port = option('port', process.env.EASY_GATEWAY_PORT || '3000');
+const explicitApiBaseUrl = option('api-base-url', '');
+const publicAppUrl = readEnvValue(join(root, '..', '.env'), 'PUBLIC_APP_URL');
+// Prefer the same PUBLIC_APP_URL the website uses, so a LAN build cannot embed
+// a different address from the QR links the backend prints.
+const lanFromPublicAppUrl = environment === 'lan' && !explicitApiBaseUrl && !lanIp && publicAppUrl
+  ? lanBaseUrlFromPublicAppUrl(publicAppUrl)
+  : '';
+
+// A LAN address handed out earlier by the router stops working when it changes.
+// Fail loudly instead of shipping an APK that trusts a dead origin.
+if (lanFromPublicAppUrl) {
+  const host = new URL(lanFromPublicAppUrl).hostname;
+  if (!isCurrentMachineAddress(host, networkInterfaces())) {
+    const current = findPrivateLanIp(networkInterfaces());
+    throw new Error(
+      `PUBLIC_APP_URL points at ${host}, which is not an address on this PC` +
+      (current ? ` (current LAN address: ${current.address})` : '') +
+      '. Update PUBLIC_APP_URL in .env, restart the backend, then rebuild the LAN APK.'
+    );
+  }
+}
 
 if (release && environment !== 'production') {
   throw new Error('Release builds must use --env production. HTTP debug environments are debug-only.');
@@ -108,10 +150,13 @@ if (environment === 'lan' && lanIp.toLowerCase() === 'auto') {
 
 const resolved = resolveApiBaseUrl({
   environment,
-  apiBaseUrl: option('api-base-url', ''),
+  apiBaseUrl: explicitApiBaseUrl || lanFromPublicAppUrl,
   lanIp,
   port
 });
+if (lanFromPublicAppUrl) {
+  console.log(`Using PUBLIC_APP_URL from the project .env: ${lanFromPublicAppUrl}`);
+}
 
 if (resolved.allowCleartext && !release) {
   console.log('Debug build: cleartext HTTP is limited to the explicitly configured private host.');

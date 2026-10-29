@@ -21,8 +21,8 @@ export const ENVIRONMENTS = {
   },
   lan: {
     label: 'Physical phone on the same LAN',
-    // MUST be supplied with --lan-ip. 192.168.1.10 is only a placeholder used to
-    // make a missing value fail closed in validation, never to contact a server.
+    // Filled from PUBLIC_APP_URL (preferred) or --lan-ip/auto-detection at build
+    // time; an empty value fails closed instead of silently using a placeholder.
     defaultBaseUrl: '',
     allowCleartext: true
   }
@@ -31,7 +31,12 @@ export const ENVIRONMENTS = {
 export function normaliseBaseUrl(value) {
   const raw = String(value || '').trim();
   if (!raw) return '';
-  const url = new URL(raw);
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error('API base URL must be a valid URL, for example https://easy-gateway.onrender.com.');
+  }
   if (!['http:', 'https:'].includes(url.protocol)) {
     throw new Error('API base URL must use http (debug only) or https.');
   }
@@ -42,6 +47,11 @@ export function normaliseBaseUrl(value) {
     throw new Error('API base URL must be an origin only, for example https://easy-gateway.onrender.com.');
   }
   return url.origin;
+}
+
+export function isLoopbackHost(hostname) {
+  const host = String(hostname || '').toLowerCase().replace(/^\[|\]$/g, '');
+  return host === 'localhost' || host === '::1' || host === '0.0.0.0' || host.endsWith('.localhost') || /^127\./.test(host);
 }
 
 export function isPrivateLanHost(hostname) {
@@ -99,16 +109,53 @@ export function validateApiBaseUrl(value, options = {}) {
     if (environment === 'production') {
       throw new Error('Production builds must use HTTPS.');
     }
-    if (!isPrivateLanHost(url.hostname)) {
-      throw new Error('Debug HTTP is only allowed for an emulator or private LAN development host.');
+  }
+  if (isLoopbackHost(url.hostname)) {
+    throw new Error('Android builds cannot use localhost. Use 10.0.2.2 for the emulator or the PC LAN address for a phone.');
+  }
+  if (url.protocol === 'http:' && !isPrivateLanHost(url.hostname)) {
+    throw new Error('Debug HTTP is only allowed for an emulator or private LAN development host.');
+  }
+
+  return baseUrl;
+}
+
+/**
+ * Returns true when a literal IPv4 LAN host is currently assigned to this PC.
+ * Used to catch a stale PUBLIC_APP_URL after the router hands out a new address.
+ * Hostnames (for example an HTTPS tunnel) cannot be checked locally and pass.
+ * @param {string} hostname
+ * @param {object} interfaces A node:os networkInterfaces() result, or a test fixture.
+ */
+export function isCurrentMachineAddress(hostname, interfaces) {
+  const host = String(hostname || '').trim();
+  if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) return true;
+  for (const addresses of Object.values(interfaces || {})) {
+    for (const item of addresses || []) {
+      if (!item) continue;
+      if ((item.family === 'IPv4' || item.family === 4) && item.address === host) return true;
     }
   }
+  return false;
+}
 
-  if (url.protocol === 'https:' && environment === 'emulator') {
-    // HTTPS emulator endpoints are permitted (for example a tunnelled dev server).
-    return baseUrl;
+/**
+ * Reuses the backend's PUBLIC_APP_URL as the LAN build endpoint so the QR that
+ * the website prints and the origin the app trusts cannot drift apart.
+ * @param {string} value The value of PUBLIC_APP_URL from the project .env.
+ */
+export function lanBaseUrlFromPublicAppUrl(value) {
+  const baseUrl = normaliseBaseUrl(value);
+  if (!baseUrl) {
+    throw new Error('PUBLIC_APP_URL is empty. Set it to the PC LAN address, for example http://192.168.1.20:3000.');
   }
-
+  const url = new URL(baseUrl);
+  if (isLoopbackHost(url.hostname)) {
+    throw new Error('PUBLIC_APP_URL uses localhost, which a phone cannot reach. Set it to the PC LAN address, for example http://192.168.1.20:3000.');
+  }
+  if (url.protocol === 'http:' && !isPrivateLanHost(url.hostname)) {
+    throw new Error('PUBLIC_APP_URL must use a private LAN IPv4 address for HTTP development builds.');
+  }
   return baseUrl;
 }
 
@@ -124,7 +171,7 @@ export function resolveApiBaseUrl(options = {}) {
   let base = options.apiBaseUrl || preset.defaultBaseUrl;
   if (environment === 'lan' && !options.apiBaseUrl) {
     const lanIp = String(options.lanIp || '').trim();
-    if (!lanIp) throw new Error('LAN builds require --lan-ip with the development PC address, for example 192.168.1.20.');
+    if (!lanIp) throw new Error('LAN builds require PUBLIC_APP_URL in the project .env or --lan-ip with the development PC address, for example 192.168.1.20.');
     const port = Number(options.port || 3000);
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('LAN port is invalid.');
     base = `http://${lanIp}:${port}`;

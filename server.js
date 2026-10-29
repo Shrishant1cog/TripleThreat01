@@ -443,10 +443,21 @@ function isLoopbackHostname(hostname){
 }
 function resolvePublicOrigin(req,env=process.env){
   const configured=text(env.PUBLIC_APP_URL);
+  const production=String(env.NODE_ENV||"").trim().toLowerCase()==="production";
+  // In production the QR origin must come from configuration. Falling back to
+  // the request Host header would let a forged header or a stale deployment
+  // emit a QR that points at the wrong domain.
+  if(production&&!configured)throw fail(412,"Production QR links require PUBLIC_APP_URL, for example https://shop.example.com.");
   let origin;
   try{origin=new URL(configured||(req.protocol+"://"+req.get("host")));}
   catch{throw fail(412,"PUBLIC_APP_URL must be a valid URL, for example http://192.168.1.20:3000.");}
+  if(!["http:","https:"].includes(origin.protocol))throw fail(412,"PUBLIC_APP_URL must use http (local development only) or https.");
+  if(origin.username||origin.password)throw fail(412,"PUBLIC_APP_URL must not contain credentials.");
+  if(origin.pathname!=="/"||origin.search||origin.hash)throw fail(412,"PUBLIC_APP_URL must be an origin only, for example https://shop.example.com.");
   if(isLoopbackHostname(origin.hostname))throw fail(412,"QR links cannot point at localhost because a phone cannot open them. Set PUBLIC_APP_URL to this PC's LAN address, for example http://192.168.1.20:3000, then restart the server.");
+  // Production QRs must always be HTTPS. Without this guard a proxy or a stale
+  // PUBLIC_APP_URL can silently emit an HTTP QR that every production app rejects.
+  if(production&&origin.protocol!=="https:")throw fail(412,"Production QR links must use HTTPS. Set PUBLIC_APP_URL to the public https URL, for example https://shop.example.com, then restart the server.");
   return origin.origin;
 }
 function escapeHtml(value){
