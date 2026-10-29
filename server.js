@@ -23,9 +23,11 @@ const pool = new Pool({
   max: Number(process.env.PG_POOL_MAX || 8),
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
+  // Set the session time zone in the startup packet so the first query on a new
+  // connection cannot race with a "SET TIME ZONE" round-trip (deprecated in pg 9).
+  options: "-c timezone=Asia/Kolkata",
   ssl: process.env.DATABASE_SSL === "true" ? { rejectUnauthorized: false } : undefined
 });
-pool.on("connect", client => client.query("SET TIME ZONE 'Asia/Kolkata'").catch(err => console.error("Timezone setup failed:", err.message)));
 pool.on("error", err => console.error("PostgreSQL pool error:", err.message));
 
 const id = () => crypto.randomUUID();
@@ -51,9 +53,13 @@ const isBeforeDate = (value, reference) => dateOnly(value) < dateOnly(reference)
 app.disable("x-powered-by");
 app.set("trust proxy",1);
 app.use(helmet({
-  contentSecurityPolicy:{directives:{
+  contentSecurityPolicy:{useDefaults:true,directives:{
     defaultSrc:["'self'"],scriptSrc:["'self'","'unsafe-inline'"],styleSrc:["'self'","'unsafe-inline'"],
-    imgSrc:["'self'","data:"],connectSrc:["'self'"],baseUri:["'self'"],objectSrc:["'none'"],frameAncestors:["'none'"]
+    imgSrc:["'self'","data:"],connectSrc:["'self'"],baseUri:["'self'"],objectSrc:["'none'"],frameAncestors:["'none'"],
+    // Helmet adds upgrade-insecure-requests by default. Behind HTTPS on Render that is
+    // correct, but over plain HTTP on a LAN address it rewrites same-origin asset
+    // requests to https:// and the browser fails them with ERR_SSL_PROTOCOL_ERROR.
+    upgradeInsecureRequests:NODE_ENV==="production"?[]:null
   }},
   crossOriginEmbedderPolicy:false
 }));
@@ -144,6 +150,8 @@ const SCHEMA_SQL = [
 "ALTER TABLE customer_orders ADD COLUMN IF NOT EXISTS email_status TEXT NOT NULL DEFAULT 'not_sent'",
 "UPDATE customer_orders SET reference_code='EG-'||UPPER(SUBSTRING(REPLACE(id,'-','') FROM 1 FOR 8)) WHERE reference_code IS NULL OR reference_code=''",
 "CREATE UNIQUE INDEX IF NOT EXISTS customer_orders_reference_unique ON customer_orders(shop_id,reference_code)",
+"ALTER TABLE customer_orders ADD COLUMN IF NOT EXISTS client_request_id TEXT",
+"CREATE UNIQUE INDEX IF NOT EXISTS customer_orders_client_request_unique ON customer_orders(shop_id,client_request_id) WHERE client_request_id IS NOT NULL",
 "ALTER TABLE customer_orders DROP CONSTRAINT IF EXISTS customer_orders_status_check",
 "ALTER TABLE customer_orders ADD CONSTRAINT customer_orders_status_check CHECK(status IN ('requested','accepted','declined','ready','fulfilled','cancelled'))",
 "CREATE INDEX IF NOT EXISTS customer_orders_shop_idx ON customer_orders(shop_id,created_at DESC)",
@@ -1325,15 +1333,24 @@ function orderEventMessage(status,reference){
 }
 app.post("/api/customer/orders",rateLimit({windowMs:60*60*1000,limit:12,standardHeaders:"draft-8",legacyHeaders:false,message:{error:"Too many order requests from this connection. Please try again later."}}),asyncRoute(async(req,res)=>{
  const slug=text(req.body.shopSlug),name=text(req.body.name),phone=text(req.body.phone),email=text(req.body.email).toLowerCase(),address=text(req.body.address),notes=text(req.body.notes),requested=Array.isArray(req.body.items)?req.body.items:[];
+ const clientRequestId=text(req.body.clientRequestId||req.get("Idempotency-Key"));
  if(name.length<2||name.length>100)throw fail(400,"Enter your name (2–100 characters).");
  if(!/^[+0-9() .-]{7,24}$/.test(phone)||phone.replace(/\D/g,"").length<7)throw fail(400,"Enter a valid contact phone number.");
  if(!validEmail(email))throw fail(400,"Enter a valid email address for the order confirmation.");
  if(address.length<5||address.length>300)throw fail(400,"Enter a delivery or pickup address (5–300 characters).");
  if(notes.length>500||!requested.length||requested.length>30)throw fail(400,"Choose at least one product and keep notes under 500 characters.");
+ if(clientRequestId&&!/^[A-Za-z0-9._:-]{8,160}$/.test(clientRequestId))throw fail(400,"The order request key is invalid. Reload the store and try again.");
  const client=await pool.connect();
  try{
   await client.query("BEGIN");const shop=await client.query("SELECT id,name FROM shops WHERE public_slug=$1 FOR SHARE",[slug]);
   if(!shop.rowCount)throw fail(404,"This customer store link is not available.");
+  if(clientRequestId){
+   const prior=await client.query("SELECT * FROM customer_orders WHERE shop_id=$1 AND client_request_id=$2",[shop.rows[0].id,clientRequestId]);
+   if(prior.rowCount){
+    await client.query("COMMIT");
+    return res.status(200).set("Cache-Control","no-store").json({order:{...customerOrderDto(prior.rows[0]),shopName:shop.rows[0].name},duplicate:true,notifications:{emailQueued:false,shopNotified:false,message:"This order request was already saved, so the existing reference was returned instead of creating a duplicate order."}});
+   }
+  }
   let total=0;const items=[];
   for(const item of requested){
    const productId=text(item.productId),quantity=Number(item.quantity);
@@ -1347,9 +1364,17 @@ app.post("/api/customer/orders",rateLimit({windowMs:60*60*1000,limit:12,standard
   let orderId=id(),reference=orderReference();
   for(let attempt=0;attempt<5;attempt++){
    try{
-    await client.query("INSERT INTO customer_orders(id,shop_id,customer_name,customer_phone,customer_email,customer_address,reference_code,notes,items,total,status,email_status) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,'requested','not_sent')",[orderId,shop.rows[0].id,name,phone,email,address,reference,notes,JSON.stringify(items),Math.round(total*100)/100]);
+    await client.query("INSERT INTO customer_orders(id,shop_id,customer_name,customer_phone,customer_email,customer_address,reference_code,notes,items,total,status,email_status,client_request_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,'requested','not_sent',$11)",[orderId,shop.rows[0].id,name,phone,email,address,reference,notes,JSON.stringify(items),Math.round(total*100)/100,clientRequestId||null]);
     break;
    }catch(err){
+    if(err.constraint==="customer_orders_client_request_unique"){
+     // The failed INSERT aborted the transaction, so roll back before reading the
+     // row that the concurrent request committed.
+     await client.query("ROLLBACK");
+     const prior=await client.query("SELECT * FROM customer_orders WHERE shop_id=$1 AND client_request_id=$2",[shop.rows[0].id,clientRequestId]);
+     if(prior.rowCount)return res.status(200).set("Cache-Control","no-store").json({order:{...customerOrderDto(prior.rows[0]),shopName:shop.rows[0].name},duplicate:true,notifications:{emailQueued:false,shopNotified:false,message:"This order request was already saved, so the existing reference was returned instead of creating a duplicate order."}});
+     throw err;
+    }
     if(err.code!=="23505"||attempt===4)throw err;
     orderId=id();reference=orderReference();
    }

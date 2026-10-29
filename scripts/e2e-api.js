@@ -183,8 +183,9 @@ async function expectStatus(name, status, want) {
     const catalog = await request("GET", `/api/customer/catalog/${encodeURIComponent(slug)}`);
     check("public catalogue hides costs", catalog.status === 200 && catalog.body.products.every((p) => p.cost === undefined));
     const phone = "+91 98765 4" + String(Date.now()).slice(-4);
+    const orderKey = "e2e-order-" + stamp;
     const order = await request("POST", "/api/customer/orders", {
-      shopSlug: slug, name: "E2E Customer", phone, email: `customer-${stamp}@example.test`,
+      shopSlug: slug, clientRequestId: orderKey, name: "E2E Customer", phone, email: `customer-${stamp}@example.test`,
       address: "12 E2E Street, Test City", notes: "Leave at the counter",
       items: [{ productId: normalId, quantity: 2 }]
     });
@@ -193,8 +194,29 @@ async function expectStatus(name, status, want) {
     const reference = order.body.order && order.body.order.reference;
     check("order returns a reference", !!reference);
     check("order starts requested and not confirmed", order.body.order.status === "requested");
+    const replay = await request("POST", "/api/customer/orders", {
+      shopSlug: slug, clientRequestId: orderKey, name: "E2E Customer", phone, email: `customer-${stamp}@example.test`,
+      address: "12 E2E Street, Test City", notes: "Leave at the counter",
+      items: [{ productId: normalId, quantity: 2 }]
+    });
+    check("repeated order request is deduplicated", replay.status === 200 && replay.body.duplicate === true && replay.body.order.reference === reference);
+    const dedupeRows = await pool.query("SELECT COUNT(*)::int AS count FROM customer_orders WHERE shop_id=$1 AND client_request_id=$2", [shopId, orderKey]);
+    check("duplicate order key creates one row", dedupeRows.rows[0].count === 1, String(dedupeRows.rows[0].count));
+    const raceKey = "e2e-race-" + stamp;
+    const racePayload = {
+      shopSlug: slug, clientRequestId: raceKey, name: "E2E Race", phone, email: `race-${stamp}@example.test`,
+      address: "12 E2E Street, Test City", items: [{ productId: normalId, quantity: 1 }]
+    };
+    const race = await Promise.all([request("POST", "/api/customer/orders", racePayload), request("POST", "/api/customer/orders", racePayload)]);
+    const raceStatuses = race.map((r) => r.status).sort((a, b) => a - b);
+    check("concurrent duplicate requests return 200 and 201", raceStatuses[0] === 200 && raceStatuses[1] === 201, raceStatuses.join(","));
+    check("concurrent duplicate requests share one reference", race[0].body.order.reference === race[1].body.order.reference);
+    const raceRows = await pool.query("SELECT COUNT(*)::int AS count FROM customer_orders WHERE shop_id=$1 AND client_request_id=$2", [shopId, raceKey]);
+    check("concurrent duplicate requests create one row", raceRows.rows[0].count === 1, String(raceRows.rows[0].count));
     const tracked = await request("GET", `/api/customer/orders/${encodeURIComponent(reference)}?phone=${encodeURIComponent(phone)}`);
     check("tracking by reference and phone works", tracked.status === 200 && tracked.body.order.reference === reference);
+    check("tracking returns items with quantities", Array.isArray(tracked.body.order.items) && tracked.body.order.items.length === 1 && tracked.body.order.items[0].quantity === 2 && typeof tracked.body.order.items[0].lineTotal === "number");
+    check("tracking returns the shop name and order date", !!tracked.body.order.shopName && !!tracked.body.order.createdAt);
     check("tracking includes an event history", Array.isArray(tracked.body.order.events) && tracked.body.order.events.length === 1);
     const wrongPhone = await request("GET", `/api/customer/orders/${encodeURIComponent(reference)}?phone=9000000000`);
     await expectStatus("tracking rejects the wrong phone", wrongPhone.status, 404);
@@ -205,6 +227,8 @@ async function expectStatus(name, status, want) {
     for (const status of ["accepted", "ready", "fulfilled"]) {
       const moved = await request("PUT", `/api/customer-orders/${orderId}/status`, { status });
       await expectStatus(`order moves to ${status}`, moved.status, 200);
+      const refreshed = await request("GET", `/api/customer/orders/${encodeURIComponent(reference)}?phone=${encodeURIComponent(phone)}`);
+      check(`tracking reflects the saved ${status} status`, refreshed.status === 200 && refreshed.body.order.status === status);
     }
     const finalOrders = await request("GET", "/api/customer-orders");
     const finalOrder = finalOrders.body.orders.find((o) => o.id === orderId);

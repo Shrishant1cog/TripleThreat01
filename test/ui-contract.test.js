@@ -90,3 +90,31 @@ test("demo validation errors reject as promises so busy forms can recover", () =
     /if \(isDemo\(\)\) \{\s*try \{\s*return demoRequest\(path, options\);\s*\}\s*catch \(error\) \{\s*return Promise\.reject\(error\);\s*\}\s*\}/
   );
 });
+
+test("demo mode seeds at least two products and two customers and guards a stale cache", () => {
+  assert.match(html, /id:"demo-p1"/);
+  assert.match(html, /id:"demo-p2"/);
+  assert.match(html, /id:"demo-c1"/);
+  assert.match(html, /id:"demo-c2"/);
+  assert.match(html, /saved\.products\.length>=2&&Array\.isArray\(saved\.customers\)&&saved\.customers\.length>=2/);
+  assert.match(html, /Demo Mode · sample data/);
+});
+
+test("the customer store has a clear tracking button, status refresh and quantity controls", () => {
+  assert.match(html, /data-action="customer-track"/);
+  assert.match(html, /Track Order Status/);
+  assert.match(html, /data-action="customer-track-refresh"/);
+  assert.match(html, /id="customerTrackPanel"/);
+  assert.match(html, /data-customer-inc=/);
+  assert.match(html, /data-customer-delete=/);
+  assert.match(html, /const CUSTOMER_STATUS_LABELS=\{requested:"Awaiting retailer approval",accepted:"Confirmed",declined:"Declined"/);
+  assert.match(html, /customerTrackQuery&&customerTrackQuery\.phone/);
+});
+
+test("customer order checkout is idempotent and validates contact details", () => {
+  assert.match(html, /clientRequestId:customerOrderKey/);
+  assert.match(html, /customerOrderKey=null/);
+  assert.match(server, /client_request_id TEXT/);
+  assert.match(server, /customer_orders_client_request_unique/);
+  assert.match(server, /const clientRequestId=text\(req\.body\.clientRequestId\|\|req\.get\("Idempotency-Key"\)\)/);
+});

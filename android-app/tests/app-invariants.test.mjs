@@ -172,6 +172,29 @@ test('shop tools load after the app bundle and reuse the shared retail rules', (
   );
 });
 
+test('demo data persists under one key and keeps at least two products and customers', () => {
+  assert.match(html, /sessionStorage\.getItem\("easyGatewayDemoDataV2"\)/);
+  assert.match(html, /sessionStorage\.setItem\("easyGatewayDemoDataV2"/);
+  assert.match(html, /saved\.products\.length>=2&&Array\.isArray\(saved\.customers\)&&saved\.customers\.length>=2/);
+  assert.match(html, /id:"demo-p1"/);
+  assert.match(html, /id:"demo-p2"/);
+  assert.match(html, /id:"demo-c1"/);
+  assert.match(html, /id:"demo-c2"/);
+  assert.match(html, /Demo Mode · sample data/);
+});
+
+test('customer storefront keeps tracking, quantity controls and duplicate-order protection', () => {
+  assert.match(html, /data-action="customer-track"/);
+  assert.match(html, /Track Order Status/);
+  assert.match(html, /data-action="customer-track-refresh"/);
+  assert.match(html, /id="customerTrackPanel"/);
+  assert.match(html, /data-customer-inc=/);
+  assert.match(html, /data-customer-delete=/);
+  assert.match(html, /clientRequestId:customerOrderKey/);
+  assert.match(html, /CUSTOMER_STATUS_LABELS=\{requested:"Awaiting retailer approval",accepted:"Confirmed"/);
+  assert.match(html, /value="'\+safe\(\(customerTrackQuery&&customerTrackQuery\.phone\)\|\|""\)\+'"/);
+});
+
 test('standard barcodes reach Quick Sale while URL codes keep the QR import path', () => {
   const features = read('www/app-features.js');
   assert.match(core, /\[product\.name, product\.sku, product\.barcode, product\.category\]/);
