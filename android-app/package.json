@@ -1,6 +1,6 @@
 {
   "name": "easy-gateway-android",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "Easy Gateway retail management Android app (Capacitor shell around the existing Easy Gateway web frontend and API).",
   "type": "module",

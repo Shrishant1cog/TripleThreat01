@@ -3,7 +3,7 @@
 Android application for the Easy Gateway retail manager. It bundles the Easy Gateway web UI in a Capacitor WebView and connects to the same Express API and PostgreSQL database as the website.
 
 - Package ID: `com.easygateway.app`
-- Version: `1.0.1` (`versionCode` 2)
+- Version: `1.0.2` (`versionCode` 3)
 - Minimum Android: 8.0 (API 26)
 - Target/compile SDK: 36
 - Capacitor: 8.5.3
