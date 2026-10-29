@@ -222,6 +222,23 @@ function configuredApiHost(){
 function nativeApiOrigin(){
  try{return new URL(nativeConfig.apiBaseUrl).origin;}catch(_){return "https://easy-gateway.onrender.com";}
 }
+function isPrivateApiHost(){
+ try{
+  const host=new URL((nativeConfig&&nativeConfig.apiBaseUrl)||"").hostname;
+  return host==="localhost"||/^127\./.test(host)||/^10\./.test(host)||/^192\.168\./.test(host)||/^172\.(1[6-9]|2[0-9]|3[01])\./.test(host);
+ }catch(_){return false;}
+}
+function unreachableMessage(){
+ return isPrivateApiHost()
+  ?"Can't connect to your local server. Check that it is running and both devices are on the same Wi-Fi."
+  :"Can't connect to Easy Gateway. Check your internet connection and try again.";
+}
+function nativeNetworkMessage(err){
+ const message=String((err&&err.message)||""),code=String((err&&err.code)||"");
+ if(code==="INVALID_API_CONFIG")return "This app build has an invalid server address. Install the correct Easy Gateway build.";
+ if(code==="NETWORK_TIMEOUT"||/did not respond in time/i.test(message))return "Easy Gateway did not respond in time. Check the connection and try again.";
+ return unreachableMessage();
+}
 function isAllowedQrUrl(url){
  const hosts=new Set(["easy-gateway.onrender.com",configuredApiHost()]);
  if(url.protocol==="https:")return hosts.has(url.host);
@@ -246,6 +263,9 @@ async function enterDemoModeForQr(){
  try{await loadData();}catch(_){}
 }
 async function handleScannedValue(raw,options){
+ // A cold-start deep link arrives before any API call, so nativeConfig is still
+ // null. Load it first; otherwise a valid LAN HTTP QR is rejected as insecure.
+ if(nativeBridge&&!nativeConfig){try{await ensureNativeConfig();}catch(_){}}
  const parsed=parseQrValue(raw),opts=options||{};
  if(parsed.error){
   if(window.EGFeatures&&typeof window.EGFeatures.handleScannedCode==="function"&&window.EGFeatures.handleScannedCode(raw))return true;
@@ -376,7 +396,9 @@ async function api(path,options){
  if(nativeBridge){
   await ensureNativeConfig();
   const body=opts.body===undefined?undefined:JSON.stringify(opts.body);
-  const result=await nativeBridge.request({method:(opts.method||"GET").toUpperCase(),path:"/api"+path,body,contentType:"application/json"});
+  let result;
+  try{result=await nativeBridge.request({method:(opts.method||"GET").toUpperCase(),path:"/api"+path,body,contentType:"application/json"});}
+  catch(err){const net=new Error(nativeNetworkMessage(err));net.status=0;net.code=(err&&err.code)||"NETWORK_ERROR";net.cause=err;throw net;}
   let data={};try{data=JSON.parse(result.body||"{}");}catch(_){}
   if(result.status<200||result.status>=300){const err=new Error(data.error||"Request failed ("+result.status+").");err.status=result.status;err.data=data;throw err;}
   return data;
@@ -417,6 +439,10 @@ function openQrTab(){
 function activeStoreSlug(){return customerView&&customerStoreSlug?customerStoreSlug:demoMode?"demo":(state.user&&state.user.publicSlug)||"";}
 function setNavOpen(open){
  document.body.classList.toggle("nav-open",!!open);
+ // The mobile sidebar is translated off-canvas and only slides in when it
+ // carries the "open" class; nav-open alone shows the scrim, so both are needed.
+ const sidebar=document.getElementById("sidebar");
+ if(sidebar)sidebar.classList.toggle("open",!!open);
  const button=document.querySelector(".mobile-menu");
  if(button)button.setAttribute("aria-expanded",open?"true":"false");
 }
@@ -480,7 +506,7 @@ async function consumePendingScanToken(){
   }
   const result=await api(route.path,{method:"POST",body:{token}});
   setPendingScanToken("");page="inventory";query="";await loadData();
-  toast("Added "+result.product.name+" to "+(result.shopName||"your shop")+" inventory. It is marked as a removable QR sample.");return true;
+  toast("Added "+result.product.name+" to "+(result.shopName||"your shop")+" inventory.");return true;
  }catch(err){
   if(err.status===401){showAuth("login","Sign in to import the scanned product. It will be added automatically after you sign in.");return false;}
   setPendingScanToken("");
@@ -577,7 +603,7 @@ async function testConnection(){
   let data={};try{data=JSON.parse(result.body||"{}");}catch(_){}
   if(result.status===200&&data.ok){state.connectionState="Connected to "+target+" ("+(data.database==="connected"?"database connected":"service reachable")+").";toast("Easy Gateway backend is reachable.");}
   else{state.connectionState="The backend replied with HTTP "+result.status+". Data changes may fail.";toast("Backend check failed (HTTP "+result.status+").");}
- }catch(err){state.connectionState="Connection failed: "+(err.message||"unknown error")+".";toast("Could not reach the backend.");}
+ }catch(err){state.connectionState=nativeNetworkMessage(err);toast(state.connectionState);}
  if(page==="settings")render();
 }
 function metric(label,value,detail,symbol){return '<article class="metric"><div class="metric-top"><span>'+label+'</span><span class="metric-symbol">'+symbol+'</span></div><div class="metric-value">'+value+'</div><div class="metric-sub">'+detail+'</div></article>';}
@@ -652,7 +678,7 @@ function renderQrGenerator(){
  const qr=state.qr,p=qr?.product||null;
  const back='<div class="qr-topbar"><button type="button" class="screen-back" data-action="page-back">← Back</button><button type="button" class="btn btn-secondary native-only" data-action="scan-qr">Scan with camera</button></div>';
  const details=p?'<div class="qr-detail-grid"><div><small>Sample SKU</small><strong>'+safe(p.sku)+'</strong></div><div><small>Category</small><strong>'+safe(p.category)+'</strong></div><div><small>Stock</small><strong>'+num(p.stock)+' '+safe(p.unit)+'</strong></div><div><small>Unit cost</small><strong>'+fmt(p.cost)+'</strong></div><div><small>Selling price</small><strong>'+fmt(p.price)+'</strong></div><div><small>Expiry date</small><strong>'+safe(dateLabel(p.expiry))+'</strong></div></div>':'';
- return back+'<div class="status-box"><strong>Scan to add a randomly generated sample product</strong><p>Generate a QR, then scan it with your phone camera. In Live Mode the product is added to this signed-in shop and tagged as a removable QR sample. In Demo Mode it goes only into temporary demo data and never touches the real database.</p></div><div class="qr-layout"><section class="panel"><div class="panel-head"><div><div class="panel-title">Random product generator</div><div class="panel-caption">Sample details are generated on the server for this QR.</div></div></div><div class="panel-body"><button class="btn btn-primary" data-action="generate-qr">'+(qr?"Generate another random product":"Generate random product QR")+'</button><p class="qr-note" style="text-align:left;margin-top:16px">The QR expires after 15 minutes or one successful scan. Live imports require the scanner browser to be signed in, or to sign in after scanning.</p><p class="qr-note" style="text-align:left">Each sample has a synthetic name, SKU, stock, cost, price, lead time and optional expiry. Verify values before using them as real stock.</p><div class="scan-actions"><button type="button" class="btn btn-secondary native-only" data-action="scan-qr">Scan code with camera</button><button type="button" class="btn btn-secondary" data-action="customer-share">Share customer store</button></div></div></section><section class="panel qr-preview"><div class="panel-title">Current sample QR</div>'+(qr?'<img class="qr-image" src="'+safe(qr.qrDataUrl)+'" alt="Random sample product import QR"><div class="qr-product">'+safe(p.name)+'</div>'+details+'<div class="qr-note" style="margin-top:12px">'+(demoMode?"Sandbox-only import.":"This scan adds a tagged sample to your live shop inventory.")+'</div><div class="qr-note">Expires '+safe(new Date(qr.expiresAt).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"}))+'</div><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:13px"><button type="button" class="btn btn-secondary" data-action="save-qr">Save / share QR image</button><button type="button" class="btn btn-secondary" data-action="generate-qr">Generate another</button></div>':'<div class="qr-empty">Press Generate to create a random sample for mobile scanning.</div>')+'</section></div>';
+ return back+'<div class="status-box"><strong>Scan to add a randomly generated sample product</strong><p>Generate a QR, then scan it with your phone camera. In Live Mode the product is added to the live inventory of this signed-in shop. In Demo Mode it goes only into temporary demo data and never touches the real database.</p></div><div class="qr-layout"><section class="panel"><div class="panel-head"><div><div class="panel-title">Random product generator</div><div class="panel-caption">Sample details are generated on the server for this QR.</div></div></div><div class="panel-body"><button class="btn btn-primary" data-action="generate-qr">'+(qr?"Generate another random product":"Generate random product QR")+'</button><p class="qr-note" style="text-align:left;margin-top:16px">The QR expires after 15 minutes or one successful scan. Live imports require the scanner browser to be signed in, or to sign in after scanning.</p><p class="qr-note" style="text-align:left">Each sample has a synthetic name, SKU, stock, cost, price, lead time and optional expiry. Verify values before using them as real stock.</p><div class="scan-actions"><button type="button" class="btn btn-secondary native-only" data-action="scan-qr">Scan code with camera</button><button type="button" class="btn btn-secondary" data-action="customer-share">Share customer store</button></div></div></section><section class="panel qr-preview"><div class="panel-title">Current sample QR</div>'+(qr?'<img class="qr-image" src="'+safe(qr.qrDataUrl)+'" alt="Random sample product import QR"><div class="qr-product">'+safe(p.name)+'</div>'+details+'<div class="qr-note" style="margin-top:12px">'+(demoMode?"Sandbox-only import.":"This scan writes to your live shop inventory.")+'</div><div class="qr-note">Expires '+safe(new Date(qr.expiresAt).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"}))+'</div><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:13px"><button type="button" class="btn btn-secondary" data-action="save-qr">Save / share QR image</button><button type="button" class="btn btn-secondary" data-action="generate-qr">Generate another</button></div>':'<div class="qr-empty">Press Generate to create a random sample for mobile scanning.</div>')+'</section></div>';
 }
 async function generateSampleProductQr(notifyUser){
  if(qrIssueInFlight)return;qrIssueInFlight=true;

@@ -9,7 +9,20 @@
   "use strict";
 
   var TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;
-  var SUPPORTED_TOKEN_MESSAGE = "This QR is not a supported Easy Gateway product link.";
+  var INVALID_QR_MESSAGE = "This QR code is invalid. Generate a new one and try again.";
+  var SUPPORTED_TOKEN_MESSAGE = INVALID_QR_MESSAGE;
+  var UNSUPPORTED_ADDRESS_MESSAGE = "This QR code uses an unsupported address.";
+  var PRODUCTION_HTTP_MESSAGE = "This QR uses an HTTP link, which the production app doesn't allow. Scan the HTTPS QR code or use the configured local-development app.";
+
+  /** Private LAN / loopback hosts used only to pick the right error message. */
+  function isPrivateDevelopmentHost(hostname) {
+    var host = String(hostname || "").toLowerCase().replace(/^\[|\]$/g, "");
+    if (host === "localhost" || host === "::1") return true;
+    if (/^127\./.test(host)) return true;
+    if (/^10\./.test(host)) return true;
+    if (/^192\.168\./.test(host)) return true;
+    return /^172\.(1[6-9]|2[0-9]|3[01])\./.test(host);
+  }
 
   function tokenIsValid(value) {
     return TOKEN_RE.test(String(value || ""));
@@ -82,15 +95,26 @@
     }
 
     var allowHttp = opts.allowHttp === true;
-    if (scheme === "http:" && !allowHttp) {
-      return { error: "This QR points to an insecure server. Use the HTTPS link instead." };
-    }
-
     var allowedHosts = (opts.allowedHosts || []).map(function (host) {
       return String(host || "").toLowerCase();
     }).filter(Boolean);
-    if (allowedHosts.length && allowedHosts.indexOf(String(url.host || "").toLowerCase()) === -1) {
-      return { error: "This QR points to a server that is not configured for this app." };
+    var host = String(url.host || "").toLowerCase();
+    var hostAllowed = !allowedHosts.length || allowedHosts.indexOf(host) !== -1;
+
+    // Cleartext is only ever valid when the build explicitly enables it AND the
+    // exact host (including port) is configured. Otherwise fail closed.
+    if (scheme === "http:" && !allowHttp) {
+      // Use the production-specific wording only when the link targets this
+      // app's own server or a private development host. Anything else is an
+      // unsupported address, not a production HTTP problem.
+      return {
+        error: hostAllowed || isPrivateDevelopmentHost(url.hostname)
+          ? PRODUCTION_HTTP_MESSAGE
+          : UNSUPPORTED_ADDRESS_MESSAGE
+      };
+    }
+    if (!hostAllowed) {
+      return { error: UNSUPPORTED_ADDRESS_MESSAGE };
     }
 
     var importMatch = String(url.pathname || "").match(/^\/import-product\/([A-Za-z0-9_-]{43})\/?$/);

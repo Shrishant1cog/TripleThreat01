@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { validDate, validDateRange, dateOnly, isBeforeDate, createQrToken, hashQrToken, isLoopbackHostname, resolvePublicOrigin, qrProductDetails, escapeHtml, generateDemoProduct, publicCustomerProduct } = require("../server");
+const { validDate, validDateRange, dateOnly, isBeforeDate, createQrToken, hashQrToken, isLoopbackHostname, resolvePublicOrigin, qrProductDetails, escapeHtml, generateDemoProduct, publicCustomerProduct, isDatabaseError, databaseErrorMessage, startupErrorMessage } = require("../server");
 
 test("validDate accepts real ISO calendar dates", () => {
   assert.equal(validDate("2026-10-28"), true);
@@ -112,4 +112,20 @@ test("restore date comparison accepts future dates and blocks past dates", () =>
   assert.equal(isBeforeDate("2026-11-01", today), false);
   assert.equal(isBeforeDate(new Date(2026, 9, 27), today), true);
   assert.equal(isBeforeDate(new Date(2026, 10, 1), today), false);
+});
+
+test("database connection failures map to a safe, actionable message", () => {
+  for (const code of ["ECONNREFUSED", "28P01", "3D000", "57P01", "08006"]) {
+    assert.equal(isDatabaseError(Object.assign(new Error("driver detail"), { code })), true, code);
+  }
+  assert.equal(isDatabaseError(new Error('password authentication failed for user "postgres"')), true);
+  assert.equal(isDatabaseError(new Error("connect ECONNREFUSED 127.0.0.1:5432")), true);
+  assert.equal(isDatabaseError(new Error("column stock_count does not exist")), false);
+  assert.equal(isDatabaseError(Object.assign(new Error("Bad input"), { status: 400 })), false);
+  const message = databaseErrorMessage();
+  assert.match(message, /Can't connect to the database/);
+  assert.doesNotMatch(message, /postgres|password|5432|127\.0\.0\.1/i);
+  assert.match(startupErrorMessage(Object.assign(new Error("auth failed"), { code: "28P01" })), /Can't connect to the database/);
+  assert.doesNotMatch(startupErrorMessage(Object.assign(new Error("auth failed"), { code: "28P01" })), /auth failed/);
+  assert.equal(startupErrorMessage(new Error("SESSION_SECRET is required")), "SESSION_SECRET is required");
 });

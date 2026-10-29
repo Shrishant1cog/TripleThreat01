@@ -22,6 +22,7 @@ if (!process.env.DATABASE_URL) {
 }
 
 const BASE = (process.env.E2E_BASE || "http://127.0.0.1:3000").replace(/\/+$/, "");
+const PUBLIC_ORIGIN = String(process.env.PUBLIC_APP_URL || "").replace(/\/+$/, "");
 const stamp = Date.now().toString(36);
 const email = `e2e-${stamp}@easygateway.test`;
 const password = "E2eTestPass!2026";
@@ -288,10 +289,74 @@ async function expectStatus(name, status, want) {
     const countAfterDemo = await pool.query("SELECT COUNT(*)::int AS n FROM products WHERE shop_id=$1 AND is_active=TRUE", [shopId]);
     check("demo QR creation leaves shop products untouched", countAfterDemo.rows[0].n === countBeforeDemo.rows[0].n, `${countBeforeDemo.rows[0].n} -> ${countAfterDemo.rows[0].n}`);
 
-    // 10. Bootstrap carries the new server-authoritative fields
+    // 10. QR generation and import against the shared inventory
+    const productQr = await request("POST", "/api/qr-tokens", { productId: normalId });
+    await expectStatus("product QR is issued for a live product", productQr.status, 201);
+    check("product QR carries a 43-character token", /^[A-Za-z0-9_-]{43}$/.test(productQr.body.token || ""));
+    check("product QR never uses a loopback address", !/localhost|127\.0\.0\.1/i.test(productQr.body.scanUrl || ""), productQr.body.scanUrl);
+    if (PUBLIC_ORIGIN) {
+      check("product QR origin matches PUBLIC_APP_URL", String(productQr.body.scanUrl).startsWith(PUBLIC_ORIGIN + "/scan/"), productQr.body.scanUrl);
+    }
+    const qrStatus = await request("GET", `/api/qr-tokens/${productQr.body.token}/status`);
+    check("fresh product QR is neither consumed nor expired", qrStatus.status === 200 && qrStatus.body.consumed === false && qrStatus.body.expired === false, JSON.stringify(qrStatus.body));
+    const unknownQr = await request("POST", "/api/qr-tokens", { productId: "missing-product" });
+    await expectStatus("QR generation rejects an unknown product", unknownQr.status, 404);
+
+    const liveQr = await request("POST", "/api/demo-product-qr", {});
+    await expectStatus("live import QR is issued", liveQr.status, 201);
+    check("live import QR is not marked demo", !/[?&]mode=demo/.test(liveQr.body.scanUrl || ""), liveQr.body.scanUrl);
+    check("live import QR never uses a loopback address", !/localhost|127\.0\.0\.1/i.test(liveQr.body.scanUrl || ""), liveQr.body.scanUrl);
+    if (PUBLIC_ORIGIN) {
+      check("live import QR origin matches PUBLIC_APP_URL", String(liveQr.body.scanUrl).startsWith(PUBLIC_ORIGIN + "/import-product/"), liveQr.body.scanUrl);
+    }
+
+    const liveImport = await request("POST", "/api/product-import/consume", { token: liveQr.body.token });
+    await expectStatus("live QR imports into the shared inventory", liveImport.status, 201);
+    const importedId = liveImport.body.product && liveImport.body.product.id;
+    const importedName = liveImport.body.product && liveImport.body.product.name;
+    check("live import is real inventory, not a demo sample", !!importedId && liveImport.body.product.isDemo === false, JSON.stringify(liveImport.body.product));
+    check("live import is not tagged as a removable QR sample", liveImport.body.product && liveImport.body.product.qrImported === false);
+    const importedRow = await pool.query("SELECT is_demo FROM products WHERE id=$1 AND shop_id=$2", [importedId, shopId]);
+    check("database stores the live import with is_demo=false", importedRow.rows[0] && importedRow.rows[0].is_demo === false, JSON.stringify(importedRow.rows));
+    const importNote = await pool.query("SELECT kind FROM notifications WHERE shop_id=$1 AND payload->>'productId'=$2", [shopId, importedId]);
+    check("live import notification is a live product notification", importNote.rows[0] && importNote.rows[0].kind === "product_added", JSON.stringify(importNote.rows));
+    const productsAfterImport = await request("GET", "/api/products");
+    check("imported product appears in the website inventory", productsAfterImport.body.products.some((p) => p.id === importedId && p.name === importedName));
+    const catalogAfterImport = await request("GET", `/api/customer/catalog/${encodeURIComponent(slug)}`);
+    check("storefront sees the QR-imported product", catalogAfterImport.body.products.some((p) => p.id === importedId && p.available === true), JSON.stringify(catalogAfterImport.body.products));
+
+    const replayImport = await request("POST", "/api/product-import/consume", { token: liveQr.body.token });
+    await expectStatus("replayed live QR is rejected", replayImport.status, 410);
+    const malformedToken = await request("POST", "/api/product-import/consume", { token: "short" });
+    await expectStatus("malformed QR token is rejected", malformedToken.status, 400);
+
+    const demoImportQr = await request("POST", "/api/demo-product-qr", { demoMode: true });
+    await expectStatus("demo import QR is issued", demoImportQr.status, 201);
+    check("demo import QR carries the demo marker", /[?&]mode=demo/.test(demoImportQr.body.scanUrl || ""), demoImportQr.body.scanUrl);
+    const liveCountBeforeCross = (await pool.query("SELECT COUNT(*)::int AS n FROM products WHERE shop_id=$1 AND is_demo=FALSE", [shopId])).rows[0].n;
+    const demoPreview = await request("POST", "/api/demo-product-qr/consume-preview", { token: demoImportQr.body.token });
+    await expectStatus("demo token is consumed only by the demo preview", demoPreview.status, 200);
+    check("demo preview returns demo-only data", demoPreview.body.demoOnly === true);
+    const liveCountAfterDemo = (await pool.query("SELECT COUNT(*)::int AS n FROM products WHERE shop_id=$1 AND is_demo=FALSE", [shopId])).rows[0].n;
+    check("demo import leaves live inventory untouched", liveCountAfterDemo === liveCountBeforeCross, `${liveCountBeforeCross} -> ${liveCountAfterDemo}`);
+
+    const demoQr2 = await request("POST", "/api/demo-product-qr", { demoMode: true });
+    const demoViaLive = await request("POST", "/api/product-import/consume", { token: demoQr2.body.token });
+    await expectStatus("demo token cannot be used as live", demoViaLive.status, 410);
+    const liveCountAfterCross = (await pool.query("SELECT COUNT(*)::int AS n FROM products WHERE shop_id=$1 AND is_demo=FALSE", [shopId])).rows[0].n;
+    check("a rejected cross-mode import changes no live rows", liveCountAfterCross === liveCountBeforeCross, `${liveCountBeforeCross} -> ${liveCountAfterCross}`);
+
+    const liveQr2 = await request("POST", "/api/demo-product-qr", {});
+    const liveViaDemo = await request("POST", "/api/demo-product-qr/consume-preview", { token: liveQr2.body.token });
+    await expectStatus("live token cannot be consumed as demo", liveViaDemo.status, 410);
+    const liveStillValid = await request("POST", "/api/product-import/consume", { token: liveQr2.body.token });
+    await expectStatus("live token survives a rejected demo attempt", liveStillValid.status, 201);
+
+    // 11. Bootstrap carries the new server-authoritative fields
     const boot = await request("GET", "/api/bootstrap");
     check("bootstrap exposes loyalty redemptions", Array.isArray(boot.body.loyaltyRedemptions) && boot.body.loyaltyRedemptions.length === 1);
     check("bootstrap exposes stock receipts", Array.isArray(boot.body.stockReceipts) && boot.body.stockReceipts.length === 2);
+    check("bootstrap marks the QR import as live inventory", boot.body.products.some((p) => p.id === importedId && p.isDemo === false));
   } catch (err) {
     failures++;
     results.push("FAIL unexpected error :: " + (err && err.stack ? err.stack : err));

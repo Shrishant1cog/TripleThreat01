@@ -11,6 +11,7 @@ const core = context.EGCore || context.window.EGCore;
 const token = 'A'.repeat(43);
 const hosts = ['easy-gateway.onrender.com'];
 const options = { allowedHosts: hosts, allowHttp: false };
+const PRODUCTION_HTTP = "This QR uses an HTTP link, which the production app doesn't allow. Scan the HTTPS QR code or use the configured local-development app.";
 
 test('accepts live import and scan links with a 43-character token', () => {
   const imported = core.parseLink(`https://easy-gateway.onrender.com/import-product/${token}`, options);
@@ -49,15 +50,14 @@ test('accepts the app custom scheme without requiring host verification', () => 
 });
 
 test('rejects tokens of the wrong length and unsupported schemes', () => {
-  assert.match(core.parseLink('https://easy-gateway.onrender.com/import-product/short', options).error, /supported|43/i);
+  assert.match(core.parseLink('https://easy-gateway.onrender.com/import-product/short', options).error, /invalid|43/i);
   assert.match(core.parseLink('javascript:alert(1)', options).error, /not an Easy Gateway link/i);
   assert.match(core.parseLink('not a url', options).error, /not an Easy Gateway link/i);
 });
 
-test('rejects a QR pointing at a different or insecure host', () => {
-  assert.match(core.parseLink(`https://evil.example/import-product/${token}`, options).error, /not configured/i);
-  assert.match(core.parseLink(`http://easy-gateway.onrender.com/import-product/${token}`, options).error, /insecure/i);
-  assert.match(core.parseLink(`https://easy-gateway.onrender.com.evil.example/import-product/${token}`, options).error, /not configured/i);
+test('rejects a QR pointing at a different host', () => {
+  assert.match(core.parseLink(`https://evil.example/import-product/${token}`, options).error, /unsupported address/i);
+  assert.match(core.parseLink(`https://easy-gateway.onrender.com.evil.example/import-product/${token}`, options).error, /unsupported address/i);
   assert.match(
     core.parseLink(`https://user:secret@easy-gateway.onrender.com/import-product/${token}`, options).error,
     /embedded sign-in details/i
@@ -67,6 +67,31 @@ test('rejects a QR pointing at a different or insecure host', () => {
     allowHttp: true
   });
   assert.equal(debug.kind, 'import');
+});
+
+test('the production build explains HTTP links with the exact required message', () => {
+  for (const link of [
+    `http://easy-gateway.onrender.com/import-product/${token}`,
+    `http://10.27.244.13:3000/import-product/${token}`,
+    `http://192.168.1.20:3000/scan/${token}`,
+    `http://10.0.2.2:3000/?scanToken=${token}`
+  ]) {
+    assert.equal(core.parseLink(link, options).error, PRODUCTION_HTTP, link);
+  }
+  assert.match(
+    core.parseLink(`http://evil.example/import-product/${token}`, options).error,
+    /unsupported address/i
+  );
+});
+
+test('a LAN debug build accepts only its exact configured host and port', () => {
+  const lan = { allowedHosts: ['10.27.244.13:3000'], allowHttp: true };
+  const accepted = core.parseLink(`http://10.27.244.13:3000/import-product/${token}`, lan);
+  assert.equal(accepted.kind, 'import');
+  assert.equal(accepted.error, undefined);
+  assert.match(core.parseLink(`http://10.27.244.13:3001/import-product/${token}`, lan).error, /unsupported address/i);
+  assert.match(core.parseLink(`http://10.27.244.14:3000/import-product/${token}`, lan).error, /unsupported address/i);
+  assert.match(core.parseLink(`http://10.27.244.13.evil.example:3000/import-product/${token}`, lan).error, /unsupported address/i);
 });
 
 test('import routing never sends a demo token to the live consume endpoint', () => {

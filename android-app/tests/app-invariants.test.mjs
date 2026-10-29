@@ -96,6 +96,19 @@ test('mobile navigation and hardware back are handled natively', () => {
   assert.match(html, /data-action="page-back"/);
 });
 
+test('a cold-start QR loads the native config before validating the host', () => {
+  const start = html.indexOf('async function handleScannedValue');
+  assert.ok(start > -1, 'handleScannedValue should exist');
+  const body = html.slice(start, html.indexOf('async function initNativeDeepLinks'));
+  const configAt = body.indexOf('await ensureNativeConfig()');
+  const parseAt = body.indexOf('parseQrValue(raw)');
+  assert.ok(configAt > -1, 'the handler must load the native config');
+  assert.ok(parseAt > configAt, 'ensureNativeConfig must run before parseQrValue');
+  assert.match(html, /function nativeNetworkMessage/);
+  assert.match(html, /Can't connect to your local server\. Check that it is running and both devices are on the same Wi-Fi\./);
+  assert.match(html, /function isPrivateApiHost/);
+});
+
 test('release builds block cleartext while debug builds allow local development', () => {
   assert.match(releaseNetwork, /cleartextTrafficPermitted="false"/);
   assert.match(debugNetwork, /cleartextTrafficPermitted="true"/);

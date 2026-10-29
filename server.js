@@ -33,6 +33,19 @@ pool.on("error", err => console.error("PostgreSQL pool error:", err.message));
 const id = () => crypto.randomUUID();
 const asyncRoute = fn => (req,res,next) => Promise.resolve(fn(req,res,next)).catch(next);
 const fail = (status,message) => Object.assign(new Error(message),{status});
+// Connection/authentication failures must never reach the browser as a raw
+// driver error. Keep the detail in the server log and return one safe message.
+const DATABASE_ERROR_CODES = new Set(["ECONNREFUSED","ECONNRESET","ENOTFOUND","ETIMEDOUT","EHOSTUNREACH","28P01","28000","3D000","57P01","53300","08000","08001","08003","08004","08006"]);
+function isDatabaseError(err){
+  const code=String((err&&err.code)||"");
+  if(DATABASE_ERROR_CODES.has(code))return true;
+  return /password authentication failed for user|role ".*" does not exist|database ".*" does not exist|connection terminated|connection refused|econnrefused|timeout expired|the database system is starting up|client has encountered a connection error/i.test(String((err&&err.message)||""));
+}
+function databaseErrorMessage(){return "Can't connect to the database. Check the database configuration and connection.";}
+function startupErrorMessage(err){
+  if(isDatabaseError(err))return databaseErrorMessage()+" Check DATABASE_URL and that PostgreSQL is running.";
+  return (err&&err.message)||"Unknown startup error.";
+}
 const text = value => typeof value === "string" ? value.trim() : "";
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -1266,8 +1279,8 @@ function importLandingPage(token,demoOnly){
  const demoUrl='/?mode=demo&page=scanner&scanToken='+encodeURIComponent(t),liveUrl='/?scanToken='+encodeURIComponent(t);
  const content=demoOnly
   ? '<p>This is a sandbox-only sample. The product will be added to local Demo Mode data, never to a retailer database.</p><p id="status">Opening Demo Mode scanner…</p><p><a href="'+demoUrl+'">Continue to demo inventory</a></p><script>window.location.replace('+JSON.stringify(demoUrl)+');</script>'
-  : '<p id="status">Checking sign-in and adding this sample product…</p><p><a href="'+liveUrl+'">Continue in Easy Gateway</a></p><script>const token='+JSON.stringify(t)+';const status=document.getElementById("status");fetch("/api/auth/me",{credentials:"same-origin"}).then(async r=>{if(!r.ok){window.location.replace("/?scanToken="+encodeURIComponent(token));return null;}return fetch("/api/product-import/consume",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({token})});}).then(async r=>{if(!r)return;const d=await r.json();if(!r.ok)throw new Error(d.error||"This code is no longer available.");status.textContent="Added "+d.product.name+" to "+(d.shopName||"your shop")+" inventory. It is marked as a removable QR sample.";}).catch(e=>{status.textContent=e.message+" If required, sign in through Easy Gateway and retry with a fresh QR.";});</script>';
- return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Import sample product · Easy Gateway</title><style>body{font:15px/1.6 system-ui,sans-serif;background:#f5f7f3;color:#26372a;margin:0;padding:22px}.card{max-width:520px;margin:6vh auto;background:#fff;border:1px solid #dfe7da;border-radius:16px;padding:28px;box-shadow:0 12px 32px #203a2910}h1{font-size:25px;margin:0 0 10px}p{color:#697765}a,.tag{color:#315d3d;font-weight:700}.tag{background:#edf4e9;padding:5px 8px;border-radius:5px;font-size:11px}</style></head><body><main class="card"><span class="tag">ONE-TIME PRODUCT IMPORT</span><h1>Sample product QR</h1>'+content+'<p>This code expires after 15 minutes or one successful scan. Live-mode imports are tagged as QR samples so the retailer can remove them after a demonstration.</p></main></body></html>';
+  : '<p id="status">Checking sign-in and adding this sample product…</p><p><a href="'+liveUrl+'">Continue in Easy Gateway</a></p><script>const token='+JSON.stringify(t)+';const status=document.getElementById("status");fetch("/api/auth/me",{credentials:"same-origin"}).then(async r=>{if(!r.ok){window.location.replace("/?scanToken="+encodeURIComponent(token));return null;}return fetch("/api/product-import/consume",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({token})});}).then(async r=>{if(!r)return;const d=await r.json();if(!r.ok)throw new Error(d.error||"This code is no longer available.");status.textContent="Added "+d.product.name+" to "+(d.shopName||"your shop")+" inventory.";}).catch(e=>{status.textContent=e.message+" If required, sign in through Easy Gateway and retry with a fresh QR.";});</script>';
+ return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Import sample product · Easy Gateway</title><style>body{font:15px/1.6 system-ui,sans-serif;background:#f5f7f3;color:#26372a;margin:0;padding:22px}.card{max-width:520px;margin:6vh auto;background:#fff;border:1px solid #dfe7da;border-radius:16px;padding:28px;box-shadow:0 12px 32px #203a2910}h1{font-size:25px;margin:0 0 10px}p{color:#697765}a,.tag{color:#315d3d;font-weight:700}.tag{background:#edf4e9;padding:5px 8px;border-radius:5px;font-size:11px}</style></head><body><main class="card"><span class="tag">ONE-TIME PRODUCT IMPORT</span><h1>Sample product QR</h1>'+content+'<p>This code expires after 15 minutes or one successful scan. Live-mode imports are added to the real shop inventory; demo imports stay inside Demo Mode.</p></main></body></html>';
 }
 
 app.post("/api/demo-product-qr",rateLimit({windowMs:15*60*1000,limit:60,standardHeaders:"draft-8",legacyHeaders:false,message:{error:"Too many demo QR codes generated. Please try later."}}),asyncRoute(async(req,res)=>{
@@ -1303,9 +1316,9 @@ app.post("/api/product-import/consume",requireAuth,rateLimit({windowMs:15*60*100
   if(!t.rowCount||t.rows[0].demo_only||t.rows[0].consumed_at||new Date(t.rows[0].expires_at)<=new Date())throw fail(410,"This live import QR has expired, is a demo-only code, or has already been scanned. Generate a fresh code.");
   const p=t.rows[0].product_snapshot;let sku=text(p.sku).slice(0,90);
   if((await client.query("SELECT 1 FROM products WHERE shop_id=$1 AND LOWER(sku)=LOWER($2)",[shopId,sku])).rowCount)sku=sku+"-"+crypto.randomBytes(2).toString("hex").toUpperCase();
-  const product=await client.query("INSERT INTO products(id,shop_id,name,sku,category,unit,stock,reorder_at,unit_cost,selling_price,lead_time_days,expiry_date,is_demo) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,TRUE) RETURNING *",[id(),shopId,p.name,sku,p.category,p.unit,p.stock,p.reorderAt,p.cost,p.price,p.leadTimeDays,p.expiry||null]);
+  const product=await client.query("INSERT INTO products(id,shop_id,name,sku,category,unit,stock,reorder_at,unit_cost,selling_price,lead_time_days,expiry_date,is_demo) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,FALSE) RETURNING *",[id(),shopId,p.name,sku,p.category,p.unit,p.stock,p.reorderAt,p.cost,p.price,p.leadTimeDays,p.expiry||null]);
   await client.query("UPDATE product_import_qr_tokens SET consumed_at=NOW(),consumed_by_shop_id=$2 WHERE id=$1",[t.rows[0].id,shopId]);
-  await notify(shopId,"demo_product_added","Demo product added to inventory",p.name+" was added from a one-time demo QR code.",{productId:product.rows[0].id,source:"qr_demo"},client);
+  await notify(shopId,"product_added","Product added from QR code",p.name+" was added to live inventory from a one-time QR code.",{productId:product.rows[0].id,source:"qr_live"},client);
   await client.query("COMMIT");res.status(201).set("Cache-Control","no-store").json({ok:true,product:productDto(product.rows[0]),shopName:req.user.shopName});
  }catch(err){await client.query("ROLLBACK").catch(()=>{});throw err;}finally{client.release();}
 }));
@@ -1453,6 +1466,10 @@ app.put("/api/customer-orders/:id/status",requireAuth,asyncRoute(async(req,res)=
 app.use("/api",(req,res)=>res.status(404).json({error:"API endpoint not found."}));
 app.use((err,req,res,next)=>{
   if(res.headersSent)return next(err);
+  if(isDatabaseError(err)){
+    console.error("Database request failed:",err.message);
+    return res.status(503).json({error:databaseErrorMessage(),code:"DB_UNAVAILABLE"});
+  }
   const status=Number(err.status)||500;if(status>=500)console.error("Request failed:",err);
   res.status(status).json({error:status>=500?"An unexpected server error occurred. Try again or contact support.":err.message});
 });
@@ -1490,5 +1507,9 @@ async function shutdown(signal){
 }
 process.on("SIGTERM",()=>shutdown("SIGTERM"));
 process.on("SIGINT",()=>shutdown("SIGINT"));
-if(require.main===module)start().catch(err=>{console.error("Easy Gateway failed to start:",err.message);process.exit(1);});
-module.exports={app,initializeDatabase,runExpirySweep,runAutoPurchaseCycle,calculateDashboard,getPurchasePlan,processEmailOutbox,emailProviderConfig,validDate,validDateRange,dateOnly,isBeforeDate,createQrToken,hashQrToken,isLoopbackHostname,resolvePublicOrigin,qrProductDetails,escapeHtml,generateDemoProduct,publicCustomerProduct,buildStockActions,buildSummaryText,LOYALTY_REWARDS,closeDatabase:()=>pool.end()};
+if(require.main===module)start().catch(err=>{
+  console.error("Easy Gateway failed to start:",startupErrorMessage(err));
+  if(NODE_ENV!=="production"&&err&&err.stack)console.error(err.stack);
+  process.exit(1);
+});
+module.exports={app,initializeDatabase,runExpirySweep,runAutoPurchaseCycle,calculateDashboard,getPurchasePlan,processEmailOutbox,emailProviderConfig,validDate,validDateRange,dateOnly,isBeforeDate,createQrToken,hashQrToken,isLoopbackHostname,resolvePublicOrigin,qrProductDetails,escapeHtml,generateDemoProduct,publicCustomerProduct,buildStockActions,buildSummaryText,LOYALTY_REWARDS,isDatabaseError,databaseErrorMessage,startupErrorMessage,closeDatabase:()=>pool.end()};
