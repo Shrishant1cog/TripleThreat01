@@ -40,12 +40,12 @@ test('LAN auto-detection prefers a Wi-Fi adapter over virtual or loopback interf
   const interfaces = {
     'vEthernet (WSL)': [{ address: '172.20.0.1', family: 'IPv4', internal: false }],
     'TAP-Windows Adapter V9': [{ address: '10.8.0.2', family: 'IPv4', internal: false }],
-    'Wi-Fi': [{ address: '10.43.232.32', family: 'IPv4', internal: false }],
+    'Wi-Fi': [{ address: '192.168.1.20', family: 'IPv4', internal: false }],
     'Loopback Pseudo-Interface 1': [{ address: '127.0.0.1', family: 'IPv4', internal: true }]
   };
   assert.deepEqual(findPrivateLanIp(interfaces), {
     name: 'Wi-Fi',
-    address: '10.43.232.32',
+    address: '192.168.1.20',
     wireless: true
   });
 });

@@ -71,7 +71,7 @@ test("QR origins never use a loopback address that a phone cannot reach", () => 
   for (const host of ["localhost", "LOCALHOST", "127.0.0.1", "127.0.0.2", "::1", "[::1]", "0.0.0.0", "shop.localhost"]) {
     assert.equal(isLoopbackHostname(host), true, host);
   }
-  for (const host of ["10.43.232.32", "192.168.1.20", "easy-gateway.onrender.com", "172.16.4.9"]) {
+  for (const host of ["192.168.1.20", "192.168.1.20", "easy-gateway.onrender.com", "172.16.4.9"]) {
     assert.equal(isLoopbackHostname(host), false, host);
   }
   const localRequest = { protocol: "http", get: name => name === "host" ? "localhost:3000" : "" };
@@ -80,9 +80,9 @@ test("QR origins never use a loopback address that a phone cannot reach", () => 
 });
 
 test("QR origins prefer PUBLIC_APP_URL and fall back to the request host", () => {
-  const request = { protocol: "http", get: name => name === "host" ? "10.43.232.32:3000" : "" };
-  assert.equal(resolvePublicOrigin(request, {}), "http://10.43.232.32:3000");
-  assert.equal(resolvePublicOrigin(request, { PUBLIC_APP_URL: "http://10.43.232.32:3000/" }), "http://10.43.232.32:3000");
+  const request = { protocol: "http", get: name => name === "host" ? "192.168.1.20:3000" : "" };
+  assert.equal(resolvePublicOrigin(request, {}), "http://192.168.1.20:3000");
+  assert.equal(resolvePublicOrigin(request, { PUBLIC_APP_URL: "http://192.168.1.20:3000/" }), "http://192.168.1.20:3000");
   assert.equal(resolvePublicOrigin(request, { PUBLIC_APP_URL: "https://shop.example.test" }), "https://shop.example.test");
   assert.throws(() => resolvePublicOrigin(request, { PUBLIC_APP_URL: "not a url" }), /valid URL/i);
 });
